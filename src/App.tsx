@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { fetchExaminations, fetchItem } from './api';
 import { useAnnotations } from './hooks/useAnnotations';
 import { Sidebar } from './components/Sidebar';
@@ -7,7 +7,7 @@ import { MaterialPane } from './components/MaterialPane';
 import { QuestionsPane } from './components/QuestionsPane';
 import { EmptyState } from './components/EmptyState';
 import { ChangeToast } from './components/ChangeToast';
-import type { Exam, ItemData, Selected, Tool } from './types';
+import type { Exam, GapFillQuestion, ItemData, Selected, Tool } from './types';
 
 /** 从路径解析路由：/ -> 首页；/:examId -> 工作台；/:examId/:itemId -> 指定试题组 */
 function parsePath(pathname: string): { exam?: string; item?: string } {
@@ -17,6 +17,10 @@ function parsePath(pathname: string): { exam?: string; item?: string } {
   return {};
 }
 
+/** 选句填空题：缺空的短文本质就是材料，左侧材料区直接展示短文 */
+const materialOf = (data: ItemData) =>
+  data.questions.find((q): q is GapFillQuestion => q.type === 'gap-fill' && !!q.passage)?.passage ?? data.material;
+
 export default function App() {
   const [exams, setExams] = useState<Exam[]>([]);
   /** 首页选中的考试集；未选中时展示首页 */
@@ -25,8 +29,29 @@ export default function App() {
   const [data, setData] = useState<ItemData>();
   const [tool, setTool] = useState<Tool>('select');
   const [changed, setChanged] = useState(false);
+  /** 选句填空：逐空预览状态（题号 -> 是否预览），由材料区空槽与题目区共享 */
+  const [gapRevealed, setGapRevealed] = useState<Record<string, boolean>>({});
 
   const { annotations, reset, commit, save, undo, redo, canUndo, canRedo } = useAnnotations(selected);
+
+  /** 当前试题组中的选句填空题（若有） */
+  const gapFillQuestion = data?.questions.find((q): q is GapFillQuestion => q.type === 'gap-fill');
+
+  /** 已预览空的答案映射，同步到材料区空槽 */
+  const blankReveals = useMemo(() => {
+    const map: Record<string, string> = {};
+    if (gapFillQuestion) {
+      for (const b of gapFillQuestion.blanks) {
+        if (gapRevealed[b.label]) map[b.label] = b.answer;
+      }
+    }
+    return map;
+  }, [gapFillQuestion, gapRevealed]);
+
+  /** 切换试题组时收起选句填空答案 */
+  useEffect(() => {
+    setGapRevealed({});
+  }, [selected]);
 
   const loadExams = useCallback(() => {
     fetchExaminations().then(setExams).catch(() => setExams([]));
@@ -142,10 +167,12 @@ export default function App() {
       />
       <main className="main">
         {data && selected ? (
-          <div className={`panes ${data.meta.sectionType === 'situational-communication' ? 'dialogue-only' : ''}`}>
+          <div className={`panes ${data.meta.sectionType === 'situational-communication' ? 'single-pane' : ''}`}>
             {data.meta.sectionType !== 'situational-communication' && (
               <MaterialPane
-                material={data.material}
+                material={materialOf(data)}
+                blankSlots={data.meta.sectionType === 'gap-fill'}
+                blankReveals={blankReveals}
                 title={data.meta.name || selected.item}
                 tool={tool}
                 onToolChange={setTool}
@@ -158,7 +185,19 @@ export default function App() {
                 onRedo={redo}
               />
             )}
-            <QuestionsPane questions={data.questions} meta={data.meta} />
+            <QuestionsPane
+              questions={data.questions}
+              meta={data.meta}
+              gap={{
+                revealed: gapRevealed,
+                onToggleBlank: (label) => setGapRevealed((s) => ({ ...s, [label]: !s[label] })),
+                onSetAll: (value) => {
+                  const next: Record<string, boolean> = {};
+                  gapFillQuestion?.blanks.forEach((b) => { next[b.label] = value; });
+                  setGapRevealed(next);
+                },
+              }}
+            />
           </div>
         ) : (
           <EmptyState />

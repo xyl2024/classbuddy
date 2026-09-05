@@ -56,8 +56,27 @@ export interface DialogueChoiceQuestion {
   explanation?: string;
 }
 
-/** 兼容旧版普通选择题，并支持情景交际对话补全题 */
-export type Question = ChoiceQuestion | DialogueChoiceQuestion;
+/** 七选五（选句填空）：整篇短文 + 共用备选句子 + 逐空答案 */
+export interface GapFillBlank {
+  /** 题号（与试卷编号一致，如 "16"） */
+  label: string;
+  /** 正确选项 key */
+  answer: string;
+  explanation?: string;
+}
+
+export interface GapFillQuestion {
+  id?: string;
+  type: 'gap-fill';
+  /** 短文原文，空位用 {{blank:16}} 标记 */
+  passage: string;
+  /** 备选句子（可含干扰项） */
+  options: QuestionOption[];
+  blanks: GapFillBlank[];
+}
+
+/** 兼容旧版普通选择题，支持情景交际对话补全题与七选五选句填空题 */
+export type Question = ChoiceQuestion | DialogueChoiceQuestion | GapFillQuestion;
 
 export interface ItemMeta {
   name?: string;

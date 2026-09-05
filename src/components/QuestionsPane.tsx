@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
-import type { DialogueChoiceQuestion, Question, QuestionOption } from '../types';
+import { Eye, EyeOff, RotateCcw } from 'lucide-react';
+import type { DialogueChoiceQuestion, GapFillQuestion, Question, QuestionOption } from '../types';
+import { optionColor } from '../optionColors';
 
 interface QuestionsPaneProps {
   questions: Question[];
@@ -10,6 +11,12 @@ interface QuestionsPaneProps {
     scorePerQuestion?: number;
     totalScore?: number;
     description?: string;
+  };
+  /** 选句填空：跨面板共享的逐空预览状态（App 持有，材料区空槽同步显示答案） */
+  gap?: {
+    revealed: Record<string, boolean>;
+    onToggleBlank: (label: string) => void;
+    onSetAll: (value: boolean) => void;
   };
 }
 
@@ -84,7 +91,7 @@ function QuestionOptions({
   picked,
   onPick,
 }: {
-  question: Pick<Question, 'options' | 'answer'>;
+  question: { options: QuestionOption[]; answer: string };
   revealed: boolean;
   picked?: string;
   onPick: (key: string) => void;
@@ -106,6 +113,101 @@ function QuestionOptions({
   );
 }
 
+/** 选句填空卡片：备选句子纯展示 + 逐空答案预览（短文在左侧材料区，预览状态由 App 同步到空槽） */
+function GapFillCard({
+  question,
+  index,
+  revealed,
+  onToggleBlank,
+  onSetAll,
+}: {
+  question: GapFillQuestion;
+  index: number;
+  /** 题号 label -> 是否已预览 */
+  revealed: Record<string, boolean>;
+  onToggleBlank: (label: string) => void;
+  onSetAll: (value: boolean) => void;
+}) {
+  const groupRevealed = question.blanks.length > 0 && question.blanks.every((b) => revealed[b.label]);
+
+  /** 某个选项对应的空是否已预览（预览后按选项配色高亮） */
+  const optionRevealed = (key: string) =>
+    question.blanks.some((b) => b.answer === key && revealed[b.label]);
+
+  const firstLabel = question.blanks[0]?.label ?? String(index + 1);
+  const lastLabel = question.blanks[question.blanks.length - 1]?.label ?? firstLabel;
+
+  return (
+    <div className="question gap-fill-question" id={`question-${index + 1}`}>
+      <div className="q-title">
+        <b>
+          第{firstLabel}
+          {firstLabel !== lastLabel ? `–${lastLabel}` : ''}题 · 选句填空
+        </b>
+        <span className="gap-actions">
+          <button
+            className="gap-reset"
+            onClick={() => onSetAll(false)}
+            title="收起全部答案"
+            aria-label="收起全部答案"
+          >
+            <RotateCcw size={13} />
+          </button>
+          <button
+            onClick={() => onSetAll(!groupRevealed)}
+            title={groupRevealed ? '隐藏全部答案' : '预览全部答案'}
+            aria-label={groupRevealed ? '隐藏全部答案' : '预览全部答案'}
+          >
+            {groupRevealed ? <EyeOff size={13} /> : <Eye size={13} />}
+          </button>
+        </span>
+      </div>
+      {question.blanks.length === 0 && <p className="dialogue-fallback">请在数据中配置 blanks（每个空对应题号、答案与解析）。</p>}
+      <div className="options gap-options">
+        {question.options.map((o) => {
+          const color = optionRevealed(o.key) ? optionColor(o.key) : undefined;
+          return (
+            <div
+              className="option"
+              key={o.key}
+              style={color ? { background: color.bg, color: color.fg } : undefined}
+            >
+              <b style={color ? { color: color.fg } : undefined}>{o.key}</b>
+              {o.text}
+            </div>
+          );
+        })}
+      </div>
+      <div className="gap-blanks">
+        {question.blanks.map((blank) => {
+          const isRevealed = !!revealed[blank.label];
+          const color = optionColor(blank.answer);
+          return (
+            <div className="gap-blank-row" key={blank.label}>
+              <div className="gap-blank-head">
+                <b>第{blank.label}题</b>
+                <button
+                  onClick={() => onToggleBlank(blank.label)}
+                  title={isRevealed ? '隐藏答案' : '预览答案'}
+                  aria-label={isRevealed ? '隐藏答案' : '预览答案'}
+                >
+                  {isRevealed ? <EyeOff size={13} /> : <Eye size={13} />}
+                </button>
+              </div>
+              {isRevealed && (
+                <div className="explanation">
+                  <strong style={{ color: color.fg }}>答案：{blank.answer}</strong>
+                  {blank.explanation && <p>{blank.explanation}</p>}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /** 单题的选项列表 + 答案解析展示 */
 function QuestionCard({
   question,
@@ -115,7 +217,7 @@ function QuestionCard({
   onToggle,
   onPick,
 }: {
-  question: Question;
+  question: Exclude<Question, GapFillQuestion>;
   index: number;
   revealed: boolean;
   picked?: string;
@@ -150,7 +252,7 @@ function QuestionCard({
   );
 }
 
-export function QuestionsPane({ questions, meta }: QuestionsPaneProps) {
+export function QuestionsPane({ questions, meta, gap }: QuestionsPaneProps) {
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
   const [picked, setPicked] = useState<Record<string, string>>({});
 
@@ -161,14 +263,26 @@ export function QuestionsPane({ questions, meta }: QuestionsPaneProps) {
   }, [questions]);
 
   const keyOf = (question: Question, index: number) => question.id ?? String(index);
-  const allRevealed = questions.length > 0 && questions.every((q, i) => revealed[keyOf(q, i)]);
+  const allRevealed =
+    questions.length > 0 &&
+    questions.every((q, i) =>
+      q.type === 'gap-fill'
+        ? q.blanks.every((b) => !!gap?.revealed[b.label])
+        : !!revealed[keyOf(q, i)],
+    );
 
   const toggleAll = () => {
+    if (allRevealed) {
+      setRevealed({});
+      gap?.onSetAll(false);
+      return;
+    }
     const next: Record<string, boolean> = {};
     questions.forEach((q, i) => {
-      next[keyOf(q, i)] = !allRevealed;
+      if (q.type !== 'gap-fill') next[keyOf(q, i)] = true;
     });
     setRevealed(next);
+    gap?.onSetAll(true);
   };
 
   const toggleOne = (key: string) => {
@@ -203,6 +317,18 @@ export function QuestionsPane({ questions, meta }: QuestionsPaneProps) {
       <div className="questions">
         {questions.map((q, i) => {
           const key = keyOf(q, i);
+          if (q.type === 'gap-fill') {
+            return (
+              <GapFillCard
+                key={key}
+                question={q}
+                index={i}
+                revealed={gap?.revealed ?? {}}
+                onToggleBlank={(label) => gap?.onToggleBlank(label)}
+                onSetAll={(value) => gap?.onSetAll(value)}
+              />
+            );
+          }
           return (
             <QuestionCard
               key={key}

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { marked } from 'marked';
 import { Eraser, Highlighter, MousePointer2, PenLine, Redo2, Trash2, Underline, Undo2 } from 'lucide-react';
+import { optionColor } from '../optionColors';
 import type { Annotation, Tool } from '../types';
 
 const HIGHLIGHT_NAME = 'cb-highlight';
@@ -26,6 +27,10 @@ interface NoteEditor {
 
 interface MaterialPaneProps {
   material: string;
+  /** 材料中的 {{blank:题号}} 标记是否渲染为空槽（选句填空短文） */
+  blankSlots?: boolean;
+  /** 题号 -> 已预览的答案 key（选句填空：右侧预览状态同步到空槽） */
+  blankReveals?: Record<string, string>;
   title: string;
   tool: Tool;
   onToolChange: (tool: Tool) => void;
@@ -58,6 +63,8 @@ const uid = () => crypto.randomUUID();
 
 export function MaterialPane({
   material,
+  blankSlots,
+  blankReveals,
   title,
   tool,
   onToolChange,
@@ -78,7 +85,18 @@ export function MaterialPane({
   /** 选择工具下鼠标是否悬停在文本批注上，用于切换可点击光标 */
   const [hoverAnnotated, setHoverAnnotated] = useState(false);
 
-  const html = useMemo(() => ({ __html: marked.parse(material) }), [material]);
+  /** 普通材料走 marked；选句填空短文按纯文本渲染，{{blank:16}} 替换为题号空槽，预览后同步显示答案 */
+  const html = useMemo(() => {
+    if (!blankSlots) return { __html: marked.parse(material) };
+    const escaped = material.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const withSlots = escaped.replace(/\{\{blank:(\d+)\}\}/g, (_, label: string) => {
+      const answer = blankReveals?.[label];
+      if (!answer) return `<span class="material-blank">${label}</span>`;
+      const c = optionColor(answer);
+      return `<span class="material-blank filled" style="color:${c.fg};background:${c.bg};border-color:${c.fg}">${label} <b>${answer}</b></span>`;
+    });
+    return { __html: `<p>${withSlots.trim().replace(/\n\n+/g, '</p><p>').replace(/\n/g, '<br/>')}</p>` };
+  }, [material, blankSlots, blankReveals]);
 
   /** 重绘画布上已有的笔迹批注；可传入临时列表用于擦除预览 */
   const draw = useCallback((list: Annotation[] = annotations) => {
@@ -162,7 +180,7 @@ export function MaterialPane({
 
   useEffect(() => {
     applyHighlights();
-  }, [applyHighlights]);
+  }, [applyHighlights, html]);
 
   /** 检测指针是否落在某个文本批注（高亮/划线）的渲染区域内，返回其 id */
   const hitTextAnnotation = (p: [number, number], list: Annotation[]): string | null => {
