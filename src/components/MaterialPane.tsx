@@ -165,6 +165,10 @@ export function MaterialPane({
 
   const onPointerDown = (e: ReactPointerEvent<HTMLElement>) => {
     if (tool === 'select') return;
+    // 画笔/橡皮擦模式下禁用默认文本选择，避免拖拽时误选中文字
+    e.preventDefault();
+    window.getSelection()?.removeAllRanges();
+    setSelPopup(null);
     e.currentTarget.setPointerCapture(e.pointerId);
     const p = toCanvasPoint(e);
     if (tool === 'freehand') {
@@ -248,7 +252,7 @@ export function MaterialPane({
         <span className="badge">{wordCount} words</span>
       </div>
       <div
-        className="material-scroll"
+        className={`material-scroll${tool !== 'select' ? ` drawing tool-${tool}` : ''}`}
         ref={materialRef}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
