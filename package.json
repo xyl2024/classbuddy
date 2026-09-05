@@ -11,6 +11,7 @@
   "dependencies": {
     "@vitejs/plugin-react": "latest",
     "express": "latest",
+    "lucide-react": "^1.41.0",
     "marked": "latest",
     "react": "latest",
     "react-dom": "latest",

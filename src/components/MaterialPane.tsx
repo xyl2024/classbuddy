@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { marked } from 'marked';
+import { Eraser, Highlighter, MousePointer2, PenLine, Redo2, Trash2, Underline, Undo2 } from 'lucide-react';
 import type { Annotation, Tool } from '../types';
 
 const HIGHLIGHT_NAME = 'cb-highlight';
@@ -255,22 +256,22 @@ export function MaterialPane({
         <canvas ref={canvasRef} className="annotation-canvas" />
       </div>
       <div className="pane-foot">
-        <button className={tool === 'select' ? 'selected' : ''} onClick={() => onToolChange('select')}>↖ 选择</button>
-        <button className={tool === 'freehand' ? 'selected' : ''} onClick={() => onToolChange('freehand')}>〰 画笔</button>
-        <button className={tool === 'eraser' ? 'selected' : ''} onClick={() => onToolChange('eraser')}>⌫ 橡皮擦</button>
+        <button className={tool === 'select' ? 'selected' : ''} onClick={() => onToolChange('select')}><MousePointer2 size={14} /> 选择</button>
+        <button className={tool === 'freehand' ? 'selected' : ''} onClick={() => onToolChange('freehand')}><PenLine size={14} /> 画笔</button>
+        <button className={tool === 'eraser' ? 'selected' : ''} onClick={() => onToolChange('eraser')}><Eraser size={14} /> 橡皮擦</button>
         <span className="tool-hint">
           {tool === 'select' ? '选中文本可高亮或划线' : tool === 'eraser' ? '点击批注删除' : '拖拽进行标注'}
         </span>
         <div className="foot-actions">
-          <button onClick={onUndo} disabled={!canUndo}>↶ 撤销</button>
-          <button onClick={onRedo} disabled={!canRedo}>↷ 重做</button>
-          <button className="danger" onClick={onClear}>清空批注</button>
+          <button onClick={onUndo} disabled={!canUndo}><Undo2 size={14} /> 撤销</button>
+          <button onClick={onRedo} disabled={!canRedo}><Redo2 size={14} /> 重做</button>
+          <button className="danger" onClick={onClear}><Trash2 size={14} /> 清空批注</button>
         </div>
       </div>
       {selPopup && (
         <div className="sel-popup" style={{ left: selPopup.x, top: selPopup.y }}>
-          <button onClick={() => annotateText('highlight')}>▰ 高亮</button>
-          <button onClick={() => annotateText('underline')}>U 划线</button>
+          <button onClick={() => annotateText('highlight')}><Highlighter size={14} /> 高亮</button>
+          <button onClick={() => annotateText('underline')}><Underline size={14} /> 划线</button>
         </div>
       )}
     </section>

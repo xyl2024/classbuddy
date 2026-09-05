@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import type { Question } from '../types';
 
 interface QuestionsPaneProps {
@@ -22,7 +23,9 @@ function QuestionCard({
       <div className="q-title">
         <span>{index + 1}</span>
         <b>{question.question}</b>
-        <button onClick={onToggle}>{revealed ? '隐藏答案' : '预览答案'}</button>
+        <button onClick={onToggle}>
+          {revealed ? (<><EyeOff size={13} /> 隐藏答案</>) : (<><Eye size={13} /> 预览答案</>)}
+        </button>
       </div>
       <div className="options">
         {question.options.map((o) => (
@@ -73,7 +76,7 @@ export function QuestionsPane({ questions }: QuestionsPaneProps) {
           <h2>题目讲解</h2>
         </div>
         <button className="answer-toggle" onClick={toggleAll}>
-          {allRevealed ? '隐藏全部答案' : '预览全部答案'}
+          {allRevealed ? (<><EyeOff size={14} /> 隐藏全部答案</>) : (<><Eye size={14} /> 预览全部答案</>)}
         </button>
       </div>
       <div className="questions">

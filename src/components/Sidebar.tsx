@@ -1,3 +1,4 @@
+import { ChevronDown, FileText, PanelLeftClose, PanelLeftOpen, RefreshCw, TriangleAlert } from 'lucide-react';
 import type { Exam, Item, Selected } from '../types';
 
 interface SidebarProps {
@@ -18,19 +19,20 @@ export function Sidebar({ exams, selected, open, onSelect, onToggle, onRefresh }
         <>
           <div className="side-title">
             内容目录
-            <button onClick={onRefresh} title="刷新目录">↻</button>
+            <button className="icon-btn" onClick={onRefresh} title="刷新目录"><RefreshCw size={15} /></button>
           </div>
           {exams.map((exam) => (
             <div key={exam.id} className="exam">
-              <strong>⌄ {exam.name}</strong>
+              <strong><ChevronDown size={14} /> {exam.name}</strong>
               {exam.items.map((item) => (
                 <button
                   key={item.id}
                   className={isActive(exam, item) ? 'item active' : 'item'}
                   onClick={() => onSelect({ exam: exam.id, item: item.id })}
                 >
-                  📄 {item.name}
-                  {!item.valid && <span className="warning">!</span>}
+                  <FileText size={14} className="item-icon" />
+                  {item.name}
+                  {!item.valid && <span className="warning"><TriangleAlert size={12} /></span>}
                 </button>
               ))}
             </div>
@@ -38,7 +40,7 @@ export function Sidebar({ exams, selected, open, onSelect, onToggle, onRefresh }
         </>
       )}
       <button className="side-toggle" onClick={onToggle} title={open ? '收起目录' : '展开目录'}>
-        {open ? '« 收起' : '»'}
+        {open ? (<><PanelLeftClose size={14} /> 收起</>) : <PanelLeftOpen size={14} />}
       </button>
     </aside>
   );
