@@ -142,21 +142,23 @@ export default function App() {
       />
       <main className="main">
         {data && selected ? (
-          <div className="panes">
-            <MaterialPane
-              material={data.material}
-              title={data.meta.name || selected.item}
-              tool={tool}
-              onToolChange={setTool}
-              annotations={annotations}
-              onCommit={commit}
-              onClear={() => save([])}
-              canUndo={canUndo}
-              canRedo={canRedo}
-              onUndo={undo}
-              onRedo={redo}
-            />
-            <QuestionsPane questions={data.questions} />
+          <div className={`panes ${data.meta.sectionType === 'situational-communication' ? 'dialogue-only' : ''}`}>
+            {data.meta.sectionType !== 'situational-communication' && (
+              <MaterialPane
+                material={data.material}
+                title={data.meta.name || selected.item}
+                tool={tool}
+                onToolChange={setTool}
+                annotations={annotations}
+                onCommit={commit}
+                onClear={() => save([])}
+                canUndo={canUndo}
+                canRedo={canRedo}
+                onUndo={undo}
+                onRedo={redo}
+              />
+            )}
+            <QuestionsPane questions={data.questions} meta={data.meta} />
           </div>
         ) : (
           <EmptyState />

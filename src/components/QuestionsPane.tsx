@@ -1,9 +1,84 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
-import type { Question } from '../types';
+import type { DialogueChoiceQuestion, Question } from '../types';
 
 interface QuestionsPaneProps {
   questions: Question[];
+  meta?: {
+    name?: string;
+    instruction?: string;
+    scorePerQuestion?: number;
+    totalScore?: number;
+    description?: string;
+  };
+}
+
+/** 对话内容：保持试卷原文排版，仅将 {{blank}} 渲染为待补全位置 */
+function DialogueView({ dialogue, options, revealed, answer }: Pick<DialogueChoiceQuestion, 'dialogue' | 'options'> & { revealed: boolean; answer: string }) {
+  const blankWidth = useMemo(() => {
+    if (typeof document === 'undefined') return 108;
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    if (!context) return 108;
+    context.font = '15px Georgia, serif';
+    const longestOption = Math.max(...options.map((option) => context.measureText(option.text).width), 0);
+    return Math.max(108, Math.ceil(longestOption + 16));
+  }, [options]);
+  return (
+    <div className="dialogue" aria-label="情景对话">
+      {dialogue.map((line, index) => {
+        const parts = line.text.split('{{blank}}');
+        return (
+          <div className="dialogue-line" key={`${line.speaker}-${index}`}>
+            <span className="dialogue-mark">—</span>
+            <span className="dialogue-text">
+              {parts.map((part, partIndex) => (
+                <span key={partIndex}>
+                  {part}
+                  {partIndex < parts.length - 1 && (
+                    <span
+                      className={`blank-slot ${revealed ? 'filled' : ''}`}
+                      style={{ width: `${blankWidth}px` }}
+                    >
+                      {revealed ? answer : ''}
+                    </span>
+                  )}
+                </span>
+              ))}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function QuestionOptions({
+  question,
+  revealed,
+  picked,
+  onPick,
+}: {
+  question: Pick<Question, 'options' | 'answer'>;
+  revealed: boolean;
+  picked?: string;
+  onPick: (key: string) => void;
+}) {
+  return (
+    <div className="options">
+      {question.options.map((o) => {
+        const classes = ['option'];
+        if (revealed && o.key === question.answer) classes.push('correct');
+        if (picked && picked === o.key && o.key !== question.answer) classes.push('wrong');
+        return (
+          <div className={classes.join(' ')} key={o.key} onClick={() => onPick(o.key)}>
+            <b>{o.key}</b>
+            {o.text}
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 /** 单题的选项列表 + 答案解析展示 */
@@ -22,31 +97,18 @@ function QuestionCard({
   onToggle: () => void;
   onPick: (key: string) => void;
 }) {
+  const isDialogue = question.type === 'dialogue-choice';
   return (
-    <div className="question" id={`question-${index + 1}`}>
+    <div className={`question ${isDialogue ? 'dialogue-question' : ''}`} id={`question-${index + 1}`}>
       <div className="q-title">
-        <b>{question.question}</b>
+        <b>{isDialogue ? `第${index + 1}题` : question.question}</b>
         <button onClick={onToggle} title={revealed ? '隐藏答案' : '预览答案'} aria-label={revealed ? '隐藏答案' : '预览答案'}>
           {revealed ? <EyeOff size={13} /> : <Eye size={13} />}
         </button>
       </div>
-      <div className="options">
-        {question.options.map((o) => {
-          const classes = ['option'];
-          if (revealed && o.key === question.answer) classes.push('correct');
-          if (picked && picked === o.key && o.key !== question.answer) classes.push('wrong');
-          return (
-            <div
-              className={classes.join(' ')}
-              key={o.key}
-              onClick={() => onPick(o.key)}
-            >
-              <b>{o.key}</b>
-              {o.text}
-            </div>
-          );
-        })}
-      </div>
+      {isDialogue && <DialogueView dialogue={question.dialogue} options={question.options} revealed={revealed} answer={question.options.find((o) => o.key === question.answer)?.text ?? question.answer} />}
+      {isDialogue && question.dialogue.some((line) => line.text.includes('{{blank}}')) === false && <p className="dialogue-fallback">请在对话数据中使用 {'{{blank}}'} 标记待补全位置。</p>}
+      <QuestionOptions question={question} revealed={revealed} picked={picked} onPick={onPick} />
       {revealed && (
         <div className="explanation">
           <strong>答案：{question.answer}</strong>
@@ -57,7 +119,7 @@ function QuestionCard({
   );
 }
 
-export function QuestionsPane({ questions }: QuestionsPaneProps) {
+export function QuestionsPane({ questions, meta }: QuestionsPaneProps) {
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
   const [picked, setPicked] = useState<Record<string, string>>({});
 
@@ -93,7 +155,15 @@ export function QuestionsPane({ questions }: QuestionsPaneProps) {
       <div className="pane-head">
         <div>
           <span className="eyebrow">QUESTIONS</span>
-          <h2>题目讲解</h2>
+          <h2>{meta?.name || '题目讲解'}</h2>
+          {meta?.instruction && <p className="section-instruction">{meta.instruction}</p>}
+          {(meta?.scorePerQuestion != null || meta?.totalScore != null || meta?.description) && (
+            <div className="section-meta">
+              {meta.description && <span>{meta.description}</span>}
+              {meta.scorePerQuestion != null && <span>每小题 {meta.scorePerQuestion} 分</span>}
+              {meta.totalScore != null && <span>满分 {meta.totalScore} 分</span>}
+            </div>
+          )}
         </div>
         <button className="answer-toggle" onClick={toggleAll} title={allRevealed ? '隐藏全部答案' : '预览全部答案'} aria-label={allRevealed ? '隐藏全部答案' : '预览全部答案'}>
           {allRevealed ? <EyeOff size={14} /> : <Eye size={14} />}

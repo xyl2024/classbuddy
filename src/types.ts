@@ -33,16 +33,39 @@ export interface QuestionOption {
   text: string;
 }
 
-export interface Question {
+export interface ChoiceQuestion {
   id?: string;
+  type?: 'choice';
   question: string;
   options: QuestionOption[];
   answer: string;
   explanation?: string;
 }
 
+export interface DialogueLine {
+  speaker: string;
+  text: string;
+}
+
+export interface DialogueChoiceQuestion {
+  id?: string;
+  type: 'dialogue-choice';
+  dialogue: DialogueLine[];
+  options: QuestionOption[];
+  answer: string;
+  explanation?: string;
+}
+
+/** 兼容旧版普通选择题，并支持情景交际对话补全题 */
+export type Question = ChoiceQuestion | DialogueChoiceQuestion;
+
 export interface ItemMeta {
   name?: string;
+  sectionType?: 'situational-communication' | string;
+  instruction?: string;
+  scorePerQuestion?: number;
+  totalScore?: number;
+  description?: string;
 }
 
 export interface AnnotationsFile {
