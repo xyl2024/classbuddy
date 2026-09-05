@@ -26,12 +26,17 @@ NODE_ENV=production npm run start -- --data ./data --port 3000
 ## 目录结构
 
 ```text
-server.ts       # Express 服务、试卷读取/保存接口、文件变化事件
-src/main.tsx    # React 应用
-src/styles.css  # 全局样式
-public/         # 可选的静态资源
- data/          # 本地试卷样例或开发数据
-CONTEXT.md      # 领域术语
+server.ts              # Express 服务、试卷读取/保存接口、文件变化事件
+src/main.tsx           # React 入口，仅负责挂载 App
+src/App.tsx            # 应用组装：目录加载、试题组选中、文件变化提示
+src/types.ts           # 共享类型（考试集/试题/批注/工具）
+src/api.ts             # 后端接口请求封装
+src/hooks/             # 自定义 Hook（如 useAnnotations：批注状态与撤销/重做）
+src/components/        # UI 组件（Sidebar、MaterialPane、QuestionsPane 等）
+src/styles.css         # 全局样式
+public/                # 可选的静态资源
+ data/                 # 本地试卷样例或开发数据
+CONTEXT.md             # 领域术语
 ```
 
 ## 数据目录约定
