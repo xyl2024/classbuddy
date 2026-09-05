@@ -45,7 +45,15 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}
 .markdown pre{white-space:pre-wrap;overflow-x:hidden}
 .markdown table{max-width:100%;border-collapse:collapse}
 .annotation-canvas{position:absolute;z-index:2;inset:0;pointer-events:none}
-.highlight-marker{position:absolute;display:none}
+
+/* 选中文本后的浮动工具栏 */
+.sel-popup{position:fixed;transform:translate(-50%,8px);background:#24354a;border-radius:8px;padding:4px;display:flex;gap:3px;box-shadow:0 8px 24px #18263844;z-index:30}
+.sel-popup button{font-size:12px;color:#fff;padding:6px 10px;border-radius:6px;white-space:nowrap}
+.sel-popup button:hover{background:#3a4f6b}
+
+/* 文本高亮与划线（CSS Custom Highlight API） */
+::highlight(cb-highlight){background-color:#a8cbff;color:inherit}
+::highlight(cb-underline){text-decoration:underline;text-decoration-color:#2e6fdf;text-decoration-thickness:2px;text-underline-offset:3px}
 
 /* 工具栏：材料卡片底部 */
 .pane-foot{border-top:1px solid #edf0f4;padding:10px 16px;display:flex;gap:5px;align-items:center;background:#fff}
