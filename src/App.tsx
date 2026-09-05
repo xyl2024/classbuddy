@@ -9,6 +9,14 @@ import { EmptyState } from './components/EmptyState';
 import { ChangeToast } from './components/ChangeToast';
 import type { Exam, ItemData, Selected, Tool } from './types';
 
+/** 从路径解析路由：/ -> 首页；/:examId -> 工作台；/:examId/:itemId -> 指定试题组 */
+function parsePath(pathname: string): { exam?: string; item?: string } {
+  const seg = pathname.split('/').filter(Boolean);
+  if (seg.length >= 2) return { exam: decodeURIComponent(seg[0]), item: decodeURIComponent(seg[1]) };
+  if (seg.length === 1) return { exam: decodeURIComponent(seg[0]) };
+  return {};
+}
+
 export default function App() {
   const [exams, setExams] = useState<Exam[]>([]);
   /** 首页选中的考试集；未选中时展示首页 */
@@ -24,6 +32,37 @@ export default function App() {
     fetchExaminations().then(setExams).catch(() => setExams([]));
   }, []);
 
+  /** 根据路径应用路由状态；考试集不存在时回首页 */
+  const applyPath = useCallback(
+    (exams: Exam[]) => {
+      const { exam: examId, item: itemId } = parsePath(location.pathname);
+      if (!examId) {
+        setActiveExam(undefined);
+        setSelected(undefined);
+        setData(undefined);
+        return;
+      }
+      const exam = exams.find((e) => e.id === examId);
+      if (!exam) {
+        // 考试集列表尚未加载完成时暂不处理，避免误判回首页
+        if (exams.length === 0) return;
+        history.replaceState(null, '', '/');
+        setActiveExam(undefined);
+        setSelected(undefined);
+        setData(undefined);
+        return;
+      }
+      setActiveExam(examId);
+      if (itemId && exam.items.some((i) => i.id === itemId)) {
+        setSelected({ exam: examId, item: itemId });
+      } else {
+        const first = exam.items.find((item) => item.valid) ?? exam.items[0];
+        setSelected(first ? { exam: examId, item: first.id } : undefined);
+      }
+    },
+    [],
+  );
+
   useEffect(() => {
     loadExams();
     const events = new EventSource('/api/events');
@@ -31,24 +70,43 @@ export default function App() {
     return () => events.close();
   }, [loadExams]);
 
+  /** 首次加载与浏览器前进/后退时按路径恢复状态 */
+  useEffect(() => {
+    applyPath(exams);
+  }, [exams, applyPath]);
+
+  useEffect(() => {
+    const onPop = () => applyPath(exams);
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [exams, applyPath]);
+
+  /** 导航到指定路径并同步状态 */
+  const navigate = useCallback(
+    (examId?: string, itemId?: string) => {
+      const seg = [examId, itemId].filter((v): v is string => !!v).map(encodeURIComponent).join('/');
+      const path = seg ? `/${seg}` : '/';
+      if (location.pathname !== path) history.pushState(null, '', path);
+      applyPath(exams);
+    },
+    [exams, applyPath],
+  );
+
   /** 首页选中试卷：进入工作台并默认打开第一个试题组 */
   const openExam = useCallback(
     (examId: string) => {
       const exam = exams.find((e) => e.id === examId);
       if (!exam) return;
-      setActiveExam(examId);
       const first = exam.items.find((item) => item.valid) ?? exam.items[0];
-      if (first) setSelected({ exam: examId, item: first.id });
+      navigate(examId, first?.id);
     },
-    [exams],
+    [exams, navigate],
   );
 
   /** 返回首页 */
   const goHome = useCallback(() => {
-    setActiveExam(undefined);
-    setSelected(undefined);
-    setData(undefined);
-  }, []);
+    navigate();
+  }, [navigate]);
 
   /** 选中试题组后加载数据，并重置批注历史 */
   useEffect(() => {
@@ -79,7 +137,7 @@ export default function App() {
       <Sidebar
         exam={exams.find((e) => e.id === activeExam)}
         selected={selected}
-        onSelect={setSelected}
+        onSelect={(s) => navigate(s.exam, s.item)}
         onHome={goHome}
       />
       <main className="main">
