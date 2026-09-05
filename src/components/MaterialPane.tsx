@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { PointerEvent as ReactPointerEvent } from 'react';
+import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { marked } from 'marked';
 import { Eraser, Highlighter, MousePointer2, PenLine, Redo2, Trash2, Underline, Undo2 } from 'lucide-react';
 import type { Annotation, Tool } from '../types';
@@ -14,6 +14,14 @@ interface SelectionPopup {
   start: number;
   end: number;
   text: string;
+}
+
+/** 点击高亮/划线内容后弹出的笔记编辑器 */
+interface NoteEditor {
+  id: string;
+  x: number;
+  y: number;
+  value: string;
 }
 
 interface MaterialPaneProps {
@@ -66,6 +74,9 @@ export function MaterialPane({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingPoints = useRef<[number, number][]>([]);
   const [selPopup, setSelPopup] = useState<SelectionPopup | null>(null);
+  const [noteEditor, setNoteEditor] = useState<NoteEditor | null>(null);
+  /** 选择工具下鼠标是否悬停在文本批注上，用于切换可点击光标 */
+  const [hoverAnnotated, setHoverAnnotated] = useState(false);
 
   const html = useMemo(() => ({ __html: marked.parse(material) }), [material]);
 
@@ -250,8 +261,40 @@ export function MaterialPane({
     drawingPoints.current = [];
   };
 
-  /** 松开鼠标后检查选区，弹出高亮/划线工具栏 */
-  const onMouseUp = () => {
+  /** 选择工具下鼠标悬停在文本批注上时，光标变为可点击态 */
+  const onMouseMove = (e: ReactMouseEvent<HTMLElement>) => {
+    if (tool !== 'select') {
+      if (hoverAnnotated) setHoverAnnotated(false);
+      return;
+    }
+    setHoverAnnotated(!!hitTextAnnotation([e.clientX, e.clientY], annotations));
+  };
+
+  /** 计算文本批注所有渲染矩形的合集包围盒（视口坐标） */
+  const annotationRect = (id: string, list: Annotation[]): DOMRect | null => {
+    const article = articleRef.current;
+    if (!article) return null;
+    const a = list.find((x) => x.id === id);
+    if (!a || a.start == null || a.end == null) return null;
+    const nodes = collectTextNodes(article);
+    let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
+    for (const n of nodes) {
+      if (a.end <= n.start || a.start >= n.end) continue;
+      const range = document.createRange();
+      range.setStart(n.node, Math.max(0, a.start - n.start));
+      range.setEnd(n.node, Math.min(n.node.data.length, a.end - n.start));
+      for (const rect of range.getClientRects()) {
+        l = Math.min(l, rect.left); t = Math.min(t, rect.top);
+        r = Math.max(r, rect.right); b = Math.max(b, rect.bottom);
+      }
+    }
+    if (l === Infinity) return null;
+    // 合成与 DOMRect 形状一致的对象，便于复用
+    return { left: l, top: t, right: r, bottom: b, width: r - l, height: b - t } as DOMRect;
+  };
+
+  /** 松开鼠标后：拖选则弹出高亮/划线工具栏；单击在文本批注上则弹出笔记编辑器 */
+  const onMouseUp = (e: ReactMouseEvent<HTMLElement>) => {
     const article = articleRef.current;
     if (!article || tool !== 'select') {
       setSelPopup(null);
@@ -261,6 +304,15 @@ export function MaterialPane({
     if (!selection || selection.isCollapsed || !selection.rangeCount
       || !article.contains(selection.anchorNode) || !article.contains(selection.focusNode)) {
       setSelPopup(null);
+      // 单击（非拖选）：若点在高亮/划线内容上，弹出笔记编辑器，定位在内容上方
+      const hitId = hitTextAnnotation([e.clientX, e.clientY], annotations);
+      if (hitId) {
+        const a = annotations.find((x) => x.id === hitId);
+        const rect = a && annotationRect(hitId, annotations);
+        if (a && rect) setNoteEditor({ id: hitId, x: rect.left + rect.width / 2, y: rect.top, value: a.note ?? '' });
+      } else {
+        setNoteEditor(null);
+      }
       return;
     }
     const nodes = collectTextNodes(article);
@@ -299,6 +351,14 @@ export function MaterialPane({
     setSelPopup(null);
   };
 
+  /** 保存笔记到对应文本批注；留空则清除笔记 */
+  const saveNote = () => {
+    if (!noteEditor) return;
+    const note = noteEditor.value.trim();
+    onCommit(annotations.map((a) => (a.id === noteEditor.id ? { ...a, note: note || undefined } : a)));
+    setNoteEditor(null);
+  };
+
   const wordCount = material.split(/\s+/).filter(Boolean).length;
 
   return (
@@ -311,13 +371,14 @@ export function MaterialPane({
         <span className="badge">{wordCount} words</span>
       </div>
       <div
-        className={`material-scroll${tool !== 'select' ? ` drawing tool-${tool}` : ''}`}
+        className={`material-scroll${tool !== 'select' ? ` drawing tool-${tool}` : ''}${hoverAnnotated ? ' hover-annotated' : ''}`}
         ref={materialRef}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onMouseUp={onMouseUp}
-        onScroll={() => setSelPopup(null)}
+        onMouseMove={onMouseMove}
+        onScroll={() => { setSelPopup(null); setNoteEditor(null); }}
       >
         <article className="markdown" ref={articleRef} dangerouslySetInnerHTML={html} />
         <canvas ref={canvasRef} className="annotation-canvas" />
@@ -336,6 +397,24 @@ export function MaterialPane({
         <div className="sel-popup" style={{ left: selPopup.x, top: selPopup.y }}>
           <button onClick={() => annotateText('highlight')}><Highlighter size={14} /> 高亮</button>
           <button onClick={() => annotateText('underline')}><Underline size={14} /> 划线</button>
+        </div>
+      )}
+      {noteEditor && (
+        <div className="note-popup" style={{ left: noteEditor.x, top: noteEditor.y }}>
+          <textarea
+            autoFocus
+            placeholder="填写笔记…"
+            value={noteEditor.value}
+            onChange={(e) => setNoteEditor({ ...noteEditor, value: e.target.value })}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setNoteEditor(null);
+              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) saveNote();
+            }}
+          />
+          <div className="note-actions">
+            <button onClick={() => setNoteEditor(null)}>取消</button>
+            <button className="primary" onClick={saveNote}>保存</button>
+          </div>
         </div>
       )}
     </section>

@@ -10,6 +10,8 @@ export interface Annotation {
   text?: string;
   /** 笔迹批注（freehand/line）：画布坐标点序列 */
   points?: [number, number][];
+  /** 文本批注附带的笔记（点击高亮/划线内容填写） */
+  note?: string;
   color?: string;
 }
 
