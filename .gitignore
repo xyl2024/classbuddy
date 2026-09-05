@@ -23,3 +23,6 @@ Thumbs.db
 # Runtime artifacts
 *.pid
 coverage/
+
+# Local data
+data/
