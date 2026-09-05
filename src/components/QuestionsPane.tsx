@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
-import type { DialogueChoiceQuestion, Question } from '../types';
+import type { DialogueChoiceQuestion, Question, QuestionOption } from '../types';
 
 interface QuestionsPaneProps {
   questions: Question[];
@@ -13,9 +13,9 @@ interface QuestionsPaneProps {
   };
 }
 
-/** 对话内容：保持试卷原文排版，仅将 {{blank}} 渲染为待补全位置 */
-function DialogueView({ dialogue, options, revealed, answer }: Pick<DialogueChoiceQuestion, 'dialogue' | 'options'> & { revealed: boolean; answer: string }) {
-  const blankWidth = useMemo(() => {
+/** 计算空白宽度：足以容纳最长的选项文本 */
+function useBlankWidth(options: QuestionOption[]) {
+  return useMemo(() => {
     if (typeof document === 'undefined') return 108;
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
@@ -24,6 +24,31 @@ function DialogueView({ dialogue, options, revealed, answer }: Pick<DialogueChoi
     const longestOption = Math.max(...options.map((option) => context.measureText(option.text).width), 0);
     return Math.max(108, Math.ceil(longestOption + 16));
   }, [options]);
+}
+
+/** 将文本中的 {{blank}} 渲染为待补全空白，预览答案时填入正确选项 */
+function BlankText({ text, options, revealed, answer }: { text: string; options: QuestionOption[]; revealed: boolean; answer: string }) {
+  const blankWidth = useBlankWidth(options);
+  const parts = text.split('{{blank}}');
+  return (
+    <>
+      {parts.map((part, partIndex) => (
+        <span key={partIndex}>
+          {part}
+          {partIndex < parts.length - 1 && (
+            <span className={`blank-slot ${revealed ? 'filled' : ''}`} style={{ width: `${blankWidth}px` }}>
+              {revealed ? answer : ''}
+            </span>
+          )}
+        </span>
+      ))}
+    </>
+  );
+}
+
+/** 对话内容：保持试卷原文排版，仅将 {{blank}} 渲染为待补全位置 */
+function DialogueView({ dialogue, options, revealed, answer }: Pick<DialogueChoiceQuestion, 'dialogue' | 'options'> & { revealed: boolean; answer: string }) {
+  const blankWidth = useBlankWidth(options);
   return (
     <div className="dialogue" aria-label="情景对话">
       {dialogue.map((line, index) => {
@@ -101,7 +126,13 @@ function QuestionCard({
   return (
     <div className={`question ${isDialogue ? 'dialogue-question' : ''}`} id={`question-${index + 1}`}>
       <div className="q-title">
-        <b>{isDialogue ? `第${index + 1}题` : question.question}</b>
+        <b>
+          {isDialogue
+            ? `第${index + 1}题`
+            : question.question.includes('{{blank}}')
+              ? <BlankText text={question.question} options={question.options} revealed={revealed} answer={question.options.find((o) => o.key === question.answer)?.text ?? question.answer} />
+              : question.question}
+        </b>
         <button onClick={onToggle} title={revealed ? '隐藏答案' : '预览答案'} aria-label={revealed ? '隐藏答案' : '预览答案'}>
           {revealed ? <EyeOff size={13} /> : <Eye size={13} />}
         </button>
