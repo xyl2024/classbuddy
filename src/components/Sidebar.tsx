@@ -1,42 +1,42 @@
-import { useState } from 'react';
-import { ChevronDown, ChevronRight, FileText, TriangleAlert } from 'lucide-react';
-import type { Exam, Item, Selected } from '../types';
+import { FileText, TriangleAlert } from 'lucide-react';
+import type { Exam, Selected } from '../types';
 
 interface SidebarProps {
-  exams: Exam[];
+  /** 当前打开的考试集（侧边栏只展示这一份试卷的试题组） */
+  exam: Exam | undefined;
   selected: Selected | undefined;
   onSelect: (target: Selected) => void;
+  onHome: () => void;
 }
 
-export function Sidebar({ exams, selected, onSelect }: SidebarProps) {
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
-  const isActive = (exam: Exam, item: Item) => selected?.exam === exam.id && selected.item === item.id;
-  const toggleExam = (id: string) => setCollapsed((m) => ({ ...m, [id]: !m[id] }));
-
+/** 工作台侧边栏：仅展示当前试卷的试题组列表 */
+export function Sidebar({ exam, selected, onSelect, onHome }: SidebarProps) {
   return (
     <aside className="sidebar">
-      <h1 className="brand">ClassBuddy</h1>
-          {exams.map((exam) => (
-            <div key={exam.id} className="exam">
-              <strong
-                className={collapsed[exam.id] ? 'exam-toggle collapsed' : 'exam-toggle'}
-                onClick={() => toggleExam(exam.id)}
-              >
-                {collapsed[exam.id] ? <ChevronRight size={14} /> : <ChevronDown size={14} />} {exam.name}
-              </strong>
-              {!collapsed[exam.id] && exam.items.map((item) => (
+      <div className="brand" onClick={onHome}>ClassBuddy</div>
+      {exam && (
+        <>
+          <div className="exam-name">{exam.name}</div>
+          <nav className="item-list">
+            {exam.items.map((item) => {
+              const active = selected?.exam === exam.id && selected.item === item.id;
+              return (
                 <button
                   key={item.id}
-                  className={isActive(exam, item) ? 'item active' : 'item'}
+                  className={active ? 'item active' : 'item'}
                   onClick={() => onSelect({ exam: exam.id, item: item.id })}
                 >
                   <FileText size={14} className="item-icon" />
                   {item.name}
-                  {!item.valid && <span className="warning"><TriangleAlert size={12} /></span>}
+                  {!item.valid && (
+                    <span className="warning" title="该试题组文件异常"><TriangleAlert size={12} /></span>
+                  )}
                 </button>
-              ))}
-            </div>
-          ))}
+              );
+            })}
+          </nav>
+        </>
+      )}
     </aside>
   );
 }

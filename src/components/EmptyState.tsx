@@ -4,8 +4,8 @@ export function EmptyState() {
   return (
     <div className="empty">
       <div className="empty-icon"><BookOpenText size={36} strokeWidth={1.5} /></div>
-      <h2>选择一个试题组开始讲解</h2>
-      <p>从左侧目录选择材料与题目</p>
+      <h2>正在加载试题组</h2>
+      <p>请稍候，或从左侧选择其他试题组</p>
     </div>
   );
 }
