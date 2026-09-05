@@ -1,4 +1,5 @@
-import { ChevronDown, FileText, PanelLeftClose, PanelLeftOpen, RefreshCw, TriangleAlert } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronDown, ChevronRight, FileText, TriangleAlert } from 'lucide-react';
 import type { Exam, Item, Selected } from '../types';
 
 interface SidebarProps {
@@ -6,25 +7,27 @@ interface SidebarProps {
   selected: Selected | undefined;
   open: boolean;
   onSelect: (target: Selected) => void;
-  onToggle: () => void;
-  onRefresh: () => void;
 }
 
-export function Sidebar({ exams, selected, open, onSelect, onToggle, onRefresh }: SidebarProps) {
+export function Sidebar({ exams, selected, open, onSelect }: SidebarProps) {
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const isActive = (exam: Exam, item: Item) => selected?.exam === exam.id && selected.item === item.id;
+  const toggleExam = (id: string) => setCollapsed((m) => ({ ...m, [id]: !m[id] }));
 
   return (
     <aside className={open ? 'sidebar' : 'sidebar collapsed'}>
       {open && (
         <>
-          <div className="side-title">
-            内容目录
-            <button className="icon-btn" onClick={onRefresh} title="刷新目录"><RefreshCw size={15} /></button>
-          </div>
+          <h1 className="brand">ClassBuddy</h1>
           {exams.map((exam) => (
             <div key={exam.id} className="exam">
-              <strong><ChevronDown size={14} /> {exam.name}</strong>
-              {exam.items.map((item) => (
+              <strong
+                className={collapsed[exam.id] ? 'exam-toggle collapsed' : 'exam-toggle'}
+                onClick={() => toggleExam(exam.id)}
+              >
+                {collapsed[exam.id] ? <ChevronRight size={14} /> : <ChevronDown size={14} />} {exam.name}
+              </strong>
+              {!collapsed[exam.id] && exam.items.map((item) => (
                 <button
                   key={item.id}
                   className={isActive(exam, item) ? 'item active' : 'item'}
@@ -39,9 +42,6 @@ export function Sidebar({ exams, selected, open, onSelect, onToggle, onRefresh }
           ))}
         </>
       )}
-      <button className="side-toggle" onClick={onToggle} title={open ? '收起目录' : '展开目录'}>
-        {open ? (<><PanelLeftClose size={14} /> 收起</>) : <PanelLeftOpen size={14} />}
-      </button>
     </aside>
   );
 }

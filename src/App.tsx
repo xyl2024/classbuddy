@@ -43,15 +43,14 @@ export default function App() {
   if (!data || !selected) {
     return (
       <div className="app">
-        <Sidebar
-          exams={exams}
-          selected={selected}
-          open={sidebarOpen}
-          onSelect={setSelected}
-          onToggle={() => setSidebarOpen((v) => !v)}
-          onRefresh={loadExams}
-        />
-        <main className="main">
+        {sidebarOpen && (
+          <Sidebar
+            exams={exams}
+            selected={selected}
+            open={sidebarOpen}
+            onSelect={setSelected}
+          />
+        )}<main className="main">
           <EmptyState />
         </main>
         {changed && <ChangeToast onReload={() => location.reload()} onDismiss={() => setChanged(false)} />}
@@ -61,14 +60,14 @@ export default function App() {
 
   return (
     <div className="app">
-      <Sidebar
-        exams={exams}
-        selected={selected}
-        open={sidebarOpen}
-        onSelect={setSelected}
-        onToggle={() => setSidebarOpen((v) => !v)}
-        onRefresh={loadExams}
-      />
+      {sidebarOpen && (
+        <Sidebar
+          exams={exams}
+          selected={selected}
+          open={sidebarOpen}
+          onSelect={setSelected}
+        />
+      )}
       <main className="main">
         <div className="panes">
           <MaterialPane
@@ -76,6 +75,8 @@ export default function App() {
             title={data.meta.name || selected.item}
             tool={tool}
             onToolChange={setTool}
+            sidebarOpen={sidebarOpen}
+            onToggleSidebar={() => setSidebarOpen((v) => !v)}
             annotations={annotations}
             onCommit={commit}
             onClear={() => save([])}

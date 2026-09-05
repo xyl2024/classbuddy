@@ -9,21 +9,21 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}
 .app{height:100vh;display:flex;overflow:hidden}
 
 /* 左侧边栏 */
-.sidebar{width:220px;flex-shrink:0;background:#fff;border-right:1px solid #e7ebf1;padding:22px 14px;overflow-y:auto;scrollbar-width:none;display:flex;flex-direction:column;transition:width .18s ease,padding .18s ease}
+.brand{font-family:'Playfair Display',serif;font-size:20px;font-weight:700;margin:0 10px 18px;white-space:nowrap;overflow:hidden}
+.sidebar{width:220px;flex-shrink:0;background:#fff;border:1px solid #e8edf3;border-radius:12px;margin:18px 0 18px 18px;padding:22px 14px;overflow-y:auto;scrollbar-width:none;display:flex;flex-direction:column;transition:width .18s ease,padding .18s ease}
 .sidebar::-webkit-scrollbar{display:none}
-.sidebar.collapsed{width:52px;padding:16px 8px}
 .side-title{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:bold;color:#99a4b1;text-transform:uppercase;letter-spacing:1px;margin:0 10px 20px;white-space:nowrap}
 .side-title button{font-size:13px;color:#9aa5b3;padding:2px 6px;border-radius:6px;display:inline-flex;align-items:center}
 .side-title button:hover{background:#eef5ff;color:#3075d7}
 .item-icon{color:#a7b2bf;flex-shrink:0}
 .exam{margin-bottom:20px}
 .exam strong{display:flex;align-items:center;gap:3px;font-size:13px;margin:0 8px 10px;white-space:nowrap;overflow:hidden}
-.item{display:flex;width:100%;text-align:left;padding:10px 12px;border-radius:8px;font-size:13px;gap:8px;white-space:nowrap;overflow:hidden}
+.exam-toggle{cursor:pointer;user-select:none}
+.item{display:flex;width:100%;text-align:left;padding:12px;margin:4px 0;border-radius:8px;font-size:13px;gap:8px;white-space:nowrap;overflow:hidden}
 .item:hover,.item.active{background:#eef5ff;color:#3075d7}
 .warning{margin-left:auto;background:#ffb84d;color:#fff;border-radius:50%;width:17px;height:17px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
-.side-toggle{margin-top:auto;display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#9aa5b3;padding:8px;border-radius:8px;white-space:nowrap;flex-shrink:0}
+.side-toggle{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#9aa5b3;padding:8px;border-radius:8px;white-space:nowrap;flex-shrink:0}
 .side-toggle:hover{background:#eef5ff;color:#3075d7}
-.sidebar.collapsed .side-toggle{font-size:15px;font-weight:bold;text-align:center}
 
 /* 主区域 */
 .main{flex:1;min-width:0;display:flex;flex-direction:column}
@@ -97,7 +97,6 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}
 
 @media(max-width:900px){
   .sidebar{width:190px}
-  .sidebar.collapsed{width:52px}
   .panes{grid-template-columns:1fr}
   .questions-pane{min-height:450px}
   .material-scroll{padding:24px}
