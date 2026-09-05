@@ -75,15 +75,18 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}
 .questions{overflow-y:auto;overflow-x:hidden;padding:8px 18px 24px;scrollbar-width:none}
 .questions::-webkit-scrollbar{display:none}
 .question{padding:18px 4px;border-bottom:1px solid #edf0f4}
-.q-title{display:grid;grid-template-columns:28px 1fr auto;gap:9px;align-items:start}
-.q-title>span{background:#edf4ff;color:#3578d6;border-radius:7px;padding:5px 0;text-align:center;font-weight:bold;font-size:12px}
+.q-title{display:grid;grid-template-columns:1fr auto;gap:9px;align-items:start}
 .q-title b{font-size:14px;line-height:1.5}
 .q-title button{font-size:11px;color:#397bd9;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;margin-top:2px}
-.options{display:grid;gap:7px;margin:14px 0 0 37px}
+.options{display:grid;gap:7px;margin:14px 0 0 4px}
 .option{display:flex;gap:8px;padding:9px;border-radius:7px;font-size:13px;line-height:1.4}
 .option b{color:#7e8a99}
 .option.correct{background:#eaf7ef;color:#267b49}
 .option.correct b{color:#267b49}
+.option{cursor:pointer;transition:background .15s}
+.option:hover{background:#f1f4f8}
+.option.wrong{background:#fdecec;color:#c0392b}
+.option.wrong b{color:#c0392b}
 .explanation{margin:10px 0 0 37px;padding:12px;background:#fff8e9;border:1px solid #f8e7b7;border-radius:8px;font-size:12px;color:#765c21}
 .explanation p{margin:7px 0 0;line-height:1.6}
 
