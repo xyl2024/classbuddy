@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { marked } from 'marked';
-import { Eraser, Highlighter, MousePointer2, PanelLeftClose, PanelLeftOpen, PenLine, Redo2, Trash2, Underline, Undo2 } from 'lucide-react';
+import { Eraser, Highlighter, MousePointer2, PenLine, Redo2, Trash2, Underline, Undo2 } from 'lucide-react';
 import type { Annotation, Tool } from '../types';
 
 const HIGHLIGHT_NAME = 'cb-highlight';
@@ -24,8 +24,6 @@ interface MaterialPaneProps {
   annotations: Annotation[];
   onCommit: (next: Annotation[]) => void;
   onClear: () => void;
-  sidebarOpen: boolean;
-  onToggleSidebar: () => void;
   canUndo: boolean;
   canRedo: boolean;
   onUndo: () => void;
@@ -58,8 +56,6 @@ export function MaterialPane({
   annotations,
   onCommit,
   onClear,
-  sidebarOpen,
-  onToggleSidebar,
   canUndo,
   canRedo,
   onUndo,
@@ -327,9 +323,6 @@ export function MaterialPane({
         <canvas ref={canvasRef} className="annotation-canvas" />
       </div>
       <div className="pane-foot">
-        <button className="side-toggle" onClick={onToggleSidebar} title={sidebarOpen ? '收起目录' : '展开目录'}>
-          {sidebarOpen ? <PanelLeftClose size={14} /> : <PanelLeftOpen size={14} />}
-        </button>
         <button className={tool === 'select' ? 'selected' : ''} onClick={() => onToolChange('select')}><MousePointer2 size={14} /> 选择</button>
         <button className={tool === 'freehand' ? 'selected' : ''} onClick={() => onToolChange('freehand')}><PenLine size={14} /> 画笔</button>
         <button className={tool === 'eraser' ? 'selected' : ''} onClick={() => onToolChange('eraser')}><Eraser size={14} /> 橡皮擦</button>

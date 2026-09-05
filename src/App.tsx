@@ -13,7 +13,6 @@ export default function App() {
   const [selected, setSelected] = useState<Selected>();
   const [data, setData] = useState<ItemData>();
   const [tool, setTool] = useState<Tool>('select');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [changed, setChanged] = useState(false);
 
   const { annotations, reset, commit, save, undo, redo, canUndo, canRedo } = useAnnotations(selected);
@@ -43,14 +42,8 @@ export default function App() {
   if (!data || !selected) {
     return (
       <div className="app">
-        {sidebarOpen && (
-          <Sidebar
-            exams={exams}
-            selected={selected}
-            open={sidebarOpen}
-            onSelect={setSelected}
-          />
-        )}<main className="main">
+        <Sidebar exams={exams} selected={selected} onSelect={setSelected} />
+        <main className="main">
           <EmptyState />
         </main>
         {changed && <ChangeToast onReload={() => location.reload()} onDismiss={() => setChanged(false)} />}
@@ -60,14 +53,7 @@ export default function App() {
 
   return (
     <div className="app">
-      {sidebarOpen && (
-        <Sidebar
-          exams={exams}
-          selected={selected}
-          open={sidebarOpen}
-          onSelect={setSelected}
-        />
-      )}
+      <Sidebar exams={exams} selected={selected} onSelect={setSelected} />
       <main className="main">
         <div className="panes">
           <MaterialPane
@@ -75,8 +61,6 @@ export default function App() {
             title={data.meta.name || selected.item}
             tool={tool}
             onToolChange={setTool}
-            sidebarOpen={sidebarOpen}
-            onToggleSidebar={() => setSidebarOpen((v) => !v)}
             annotations={annotations}
             onCommit={commit}
             onClear={() => save([])}

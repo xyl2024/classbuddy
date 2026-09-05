@@ -5,20 +5,17 @@ import type { Exam, Item, Selected } from '../types';
 interface SidebarProps {
   exams: Exam[];
   selected: Selected | undefined;
-  open: boolean;
   onSelect: (target: Selected) => void;
 }
 
-export function Sidebar({ exams, selected, open, onSelect }: SidebarProps) {
+export function Sidebar({ exams, selected, onSelect }: SidebarProps) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const isActive = (exam: Exam, item: Item) => selected?.exam === exam.id && selected.item === item.id;
   const toggleExam = (id: string) => setCollapsed((m) => ({ ...m, [id]: !m[id] }));
 
   return (
-    <aside className={open ? 'sidebar' : 'sidebar collapsed'}>
-      {open && (
-        <>
-          <h1 className="brand">ClassBuddy</h1>
+    <aside className="sidebar">
+      <h1 className="brand">ClassBuddy</h1>
           {exams.map((exam) => (
             <div key={exam.id} className="exam">
               <strong
@@ -40,8 +37,6 @@ export function Sidebar({ exams, selected, open, onSelect }: SidebarProps) {
               ))}
             </div>
           ))}
-        </>
-      )}
     </aside>
   );
 }
