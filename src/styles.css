@@ -64,7 +64,6 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}
 .pane-foot{border-top:1px solid #edf0f4;padding:10px 16px;display:flex;gap:5px;align-items:center;background:#fff}
 .pane-foot>button,.foot-actions button{font-size:12px;padding:8px 11px;border-radius:7px;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
 .pane-foot>button:hover,.pane-foot>button.selected{background:#edf4ff;color:#3176d8}
-.tool-hint{color:#a0aab6;font-size:12px;margin-left:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .foot-actions{margin-left:auto;display:flex;gap:5px}
 .foot-actions button:disabled{opacity:.4;cursor:default}
 .foot-actions button:not(:disabled):hover{background:#edf4ff;color:#3176d8}
@@ -104,5 +103,4 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}
   .panes{grid-template-columns:1fr}
   .questions-pane{min-height:450px}
   .material-scroll{padding:24px}
-  .tool-hint{display:none}
 }

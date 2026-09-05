@@ -73,8 +73,8 @@ export function MaterialPane({
 
   const html = useMemo(() => ({ __html: marked.parse(material) }), [material]);
 
-  /** 重绘画布上已有的笔迹批注 */
-  const draw = useCallback(() => {
+  /** 重绘画布上已有的笔迹批注；可传入临时列表用于擦除预览 */
+  const draw = useCallback((list: Annotation[] = annotations) => {
     const canvas = canvasRef.current;
     const host = materialRef.current;
     if (!canvas || !host) return;
@@ -82,7 +82,7 @@ export function MaterialPane({
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.lineWidth = 3;
     ctx.lineCap = 'round';
-    for (const a of annotations) {
+    for (const a of list) {
       if (a.type === 'highlight' || !a.points?.length) continue;
       ctx.strokeStyle = a.type === 'line' ? '#ef6c47' : '#2e6fdf';
       ctx.beginPath();
@@ -127,8 +127,8 @@ export function MaterialPane({
     draw();
   }, [draw]);
 
-  /** 用 CSS Custom Highlight API 渲染文本高亮与划线 */
-  useEffect(() => {
+  /** 用 CSS Custom Highlight API 渲染文本高亮与划线；可传入临时列表用于擦除预览 */
+  const applyHighlights = useCallback((list: Annotation[] = annotations) => {
     // CSS Custom Highlight API 目前 TS 标准库未内置类型，用 any 过渡
     const HighlightCtor = (window as { Highlight?: new (...ranges: Range[]) => unknown }).Highlight;
     const highlights = (CSS as unknown as { highlights?: Map<string, unknown> }).highlights;
@@ -137,7 +137,7 @@ export function MaterialPane({
     const nodes = collectTextNodes(article);
     const rangesFor = (type: 'highlight' | 'underline') => {
       const ranges: Range[] = [];
-      for (const a of annotations) {
+      for (const a of list) {
         if (a.type !== type || a.start == null || a.end == null) continue;
         for (const n of nodes) {
           if (a.end <= n.start || a.start >= n.end) continue;
@@ -151,16 +151,65 @@ export function MaterialPane({
     };
     highlights.set(HIGHLIGHT_NAME, new HighlightCtor(...rangesFor('highlight')));
     highlights.set(UNDERLINE_NAME, new HighlightCtor(...rangesFor('underline')));
-  }, [annotations, material]);
+  }, [annotations]);
+
+  useEffect(() => {
+    applyHighlights();
+  }, [applyHighlights]);
+
+  /** 检测指针是否落在某个文本批注（高亮/划线）的渲染区域内，返回其 id */
+  const hitTextAnnotation = (p: [number, number], list: Annotation[]): string | null => {
+    const article = articleRef.current;
+    if (!article) return null;
+    const [x, y] = p;
+    const nodes = collectTextNodes(article);
+    const pad = 4;
+    for (const a of list) {
+      if (a.type !== 'highlight' && a.type !== 'underline') continue;
+      if (a.start == null || a.end == null) continue;
+      for (const n of nodes) {
+        if (a.end <= n.start || a.start >= n.end) continue;
+        const range = document.createRange();
+        range.setStart(n.node, Math.max(0, a.start - n.start));
+        range.setEnd(n.node, Math.min(n.node.data.length, a.end - n.start));
+        for (const r of range.getClientRects()) {
+          if (x >= r.left - pad && x <= r.right + pad && y >= r.top - pad && y <= r.bottom + pad) return a.id;
+        }
+      }
+    }
+    return null;
+  };
 
   const toCanvasPoint = (e: ReactPointerEvent<HTMLElement>): [number, number] => {
     const rect = canvasRef.current!.getBoundingClientRect();
     return [e.clientX - rect.left, e.clientY - rect.top];
   };
 
+  /** 橡皮擦拖拽过程中已擦除的批注 id，pointerup 时一次性提交 */
+  const erasedIds = useRef<Set<string>>(new Set());
+  /** 拖拽过程中的实时预览列表（基于 annotations 过滤） */
+  const erasePreview = useRef<Annotation[] | null>(null);
+  /** 是否正在拖拽擦除 */
+  const erasing = useRef(false);
+
   const eraseAt = (p: [number, number]) => {
-    const hit = annotations.find((a) => a.points?.some((q) => Math.hypot(q[0] - p[0], q[1] - p[1]) < ERASER_HIT_RADIUS));
-    if (hit) onCommit(annotations.filter((a) => a.id !== hit.id));
+    const list = erasePreview.current ?? annotations;
+    // 笔迹类：检查点到点列的距离；文本类：检查指针是否落在渲染矩形内
+    const hit =
+      list.find(
+        (a) =>
+          (a.type === 'freehand' || a.type === 'line') &&
+          a.points?.some((q) => Math.hypot(q[0] - p[0], q[1] - p[1]) < ERASER_HIT_RADIUS),
+      )?.id ??
+      hitTextAnnotation(
+        [p[0] + (canvasRef.current?.getBoundingClientRect().left ?? 0), p[1] + (canvasRef.current?.getBoundingClientRect().top ?? 0)],
+        list,
+      );
+    if (!hit || erasedIds.current.has(hit)) return;
+    erasedIds.current.add(hit);
+    erasePreview.current = list.filter((a) => a.id !== hit);
+    draw(erasePreview.current);
+    applyHighlights(erasePreview.current);
   };
 
   const onPointerDown = (e: ReactPointerEvent<HTMLElement>) => {
@@ -174,17 +223,31 @@ export function MaterialPane({
     if (tool === 'freehand') {
       drawingPoints.current = [p];
     } else {
+      erasedIds.current = new Set();
+      erasePreview.current = null;
+      erasing.current = true;
       eraseAt(p);
     }
   };
 
   const onPointerMove = (e: ReactPointerEvent<HTMLElement>) => {
+    if (tool === 'eraser' && erasing.current) {
+      eraseAt(toCanvasPoint(e));
+      return;
+    }
     if (tool !== 'freehand' || !drawingPoints.current.length) return;
     drawingPoints.current.push(toCanvasPoint(e));
     drawPreview();
   };
 
   const onPointerUp = () => {
+    if (tool === 'eraser') {
+      erasing.current = false;
+      const removed = erasePreview.current;
+      erasePreview.current = null;
+      if (removed && erasedIds.current.size) onCommit(removed);
+      return;
+    }
     const points = drawingPoints.current;
     if (tool !== 'freehand' || !points.length) return;
     onCommit([...annotations, { id: uid(), type: 'freehand', points }]);
@@ -270,9 +333,6 @@ export function MaterialPane({
         <button className={tool === 'select' ? 'selected' : ''} onClick={() => onToolChange('select')}><MousePointer2 size={14} /> 选择</button>
         <button className={tool === 'freehand' ? 'selected' : ''} onClick={() => onToolChange('freehand')}><PenLine size={14} /> 画笔</button>
         <button className={tool === 'eraser' ? 'selected' : ''} onClick={() => onToolChange('eraser')}><Eraser size={14} /> 橡皮擦</button>
-        <span className="tool-hint">
-          {tool === 'select' ? '选中文本可高亮或划线' : tool === 'eraser' ? '点击批注删除' : '拖拽进行标注'}
-        </span>
         <div className="foot-actions">
           <button onClick={onUndo} disabled={!canUndo}><Undo2 size={14} /> 撤销</button>
           <button onClick={onRedo} disabled={!canRedo}><Redo2 size={14} /> 重做</button>
