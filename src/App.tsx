@@ -7,7 +7,7 @@ import { MaterialPane } from './components/MaterialPane';
 import { QuestionsPane } from './components/QuestionsPane';
 import { EmptyState } from './components/EmptyState';
 import { ChangeToast } from './components/ChangeToast';
-import type { ClozeQuestion, Exam, GapFillQuestion, ItemData, Question, Selected, Tool } from './types';
+import type { ClozeQuestion, Exam, GapFillQuestion, GrammarFillQuestion, ItemData, Question, Selected, Tool } from './types';
 
 /** 从路径解析路由：/ -> 首页；/:examId -> 工作台；/:examId/:itemId -> 指定试题组 */
 function parsePath(pathname: string): { exam?: string; item?: string } {
@@ -17,9 +17,9 @@ function parsePath(pathname: string): { exam?: string; item?: string } {
   return {};
 }
 
-/** 内嵌短文的题型：选句填空 / 完形填空 */
-const isPassageQuestion = (q: Question): q is GapFillQuestion | ClozeQuestion =>
-  (q.type === 'gap-fill' || q.type === 'cloze') && !!q.passage;
+/** 内嵌短文的题型：选句填空 / 完形填空 / 语法填空 */
+const isPassageQuestion = (q: Question): q is GapFillQuestion | ClozeQuestion | GrammarFillQuestion =>
+  (q.type === 'gap-fill' || q.type === 'cloze' || q.type === 'grammar-fill') && !!q.passage;
 
 /** 内嵌短文的题：短文本质就是材料，左侧材料区直接展示短文 */
 const materialOf = (data: ItemData) =>
@@ -41,7 +41,7 @@ export default function App() {
   /** 当前试题组中内嵌短文的题（选句填空/完形填空，若有） */
   const passageQuestion = data?.questions.find(isPassageQuestion);
 
-  /** 已预览空的答案映射，同步到材料区空槽 */
+  /** 已预览空的答案文本，同步到材料区空槽 */
   const blankReveals = useMemo(() => {
     const map: Record<string, string> = {};
     if (passageQuestion) {
@@ -51,6 +51,20 @@ export default function App() {
     }
     return map;
   }, [passageQuestion, gapRevealed]);
+
+  /** 语法填空：空槽内的括号提示词 */
+  const blankHints = useMemo(() => {
+    const map: Record<string, string> = {};
+    if (passageQuestion?.type === 'grammar-fill') {
+      for (const b of passageQuestion.blanks) {
+        if (b.hint) map[b.label] = b.hint;
+      }
+    }
+    return map;
+  }, [passageQuestion]);
+
+  /** 语法填空答案为单词而非选项 key，空槽用固定色而非选项配色 */
+  const blankColorKeys = passageQuestion?.type !== 'grammar-fill';
 
   /** 切换试题组时收起选句填空/完形填空答案 */
   useEffect(() => {
@@ -171,12 +185,14 @@ export default function App() {
       />
       <main className="main">
         {data && selected ? (
-          <div className={`panes ${data.meta.sectionType === 'situational-communication' ? 'single-pane' : ''}`}>
-            {data.meta.sectionType !== 'situational-communication' && (
+          <div className={`panes ${data.meta.sectionType === 'situational-communication' || data.meta.sectionType === 'writing' ? 'single-pane' : ''}`}>
+            {data.meta.sectionType !== 'situational-communication' && data.meta.sectionType !== 'writing' && (
               <MaterialPane
                 material={materialOf(data)}
-                blankSlots={data.meta.sectionType === 'gap-fill' || data.meta.sectionType === 'cloze'}
+                blankSlots={data.meta.sectionType === 'gap-fill' || data.meta.sectionType === 'cloze' || data.meta.sectionType === 'grammar-fill'}
                 blankReveals={blankReveals}
+                blankHints={blankHints}
+                blankColorKeys={blankColorKeys}
                 title={data.meta.name || selected.item}
                 tool={tool}
                 onToolChange={setTool}

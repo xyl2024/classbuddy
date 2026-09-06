@@ -27,10 +27,14 @@ interface NoteEditor {
 
 interface MaterialPaneProps {
   material: string;
-  /** 材料中的 {{blank:题号}} 标记是否渲染为空槽（选句填空短文） */
+  /** 材料中的 {{blank:题号}} 标记是否渲染为空槽（选句填空/完形填空/语法填空短文） */
   blankSlots?: boolean;
-  /** 题号 -> 已预览的答案 key（选句填空：右侧预览状态同步到空槽） */
+  /** 题号 -> 已预览的答案文本（选项 key 或单词，语法填空为单词），空槽预览后同步显示 */
   blankReveals?: Record<string, string>;
+  /** 题号 -> 括号内提示词（语法填空），空槽内显示 */
+  blankHints?: Record<string, string>;
+  /** 预览答案文本是否为选项 key（选句填空/完形填空），用于选项配色；语法填空为单词，用固定色 */
+  blankColorKeys?: boolean;
   title: string;
   tool: Tool;
   onToolChange: (tool: Tool) => void;
@@ -65,6 +69,8 @@ export function MaterialPane({
   material,
   blankSlots,
   blankReveals,
+  blankHints,
+  blankColorKeys = true,
   title,
   tool,
   onToolChange,
@@ -85,18 +91,23 @@ export function MaterialPane({
   /** 选择工具下鼠标是否悬停在文本批注上，用于切换可点击光标 */
   const [hoverAnnotated, setHoverAnnotated] = useState(false);
 
-  /** 普通材料走 marked；选句填空短文按纯文本渲染，{{blank:16}} 替换为题号空槽，预览后同步显示答案 */
+  /** 普通材料走 marked；内嵌短文按纯文本渲染，{{blank:16}} 替换为题号空槽（可附括号提示词），预览后同步显示答案 */
   const html = useMemo(() => {
     if (!blankSlots) return { __html: marked.parse(material) };
     const escaped = material.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const withSlots = escaped.replace(/\{\{blank:(\d+)\}\}/g, (_, label: string) => {
       const answer = blankReveals?.[label];
-      if (!answer) return `<span class="material-blank">${label}</span>`;
-      const c = optionColor(answer);
-      return `<span class="material-blank filled" style="color:${c.fg};background:${c.bg};border-color:${c.fg}">${label} <b>${answer}</b></span>`;
+      const hint = blankHints?.[label];
+      const inner = hint ? `${label} <i>(${hint})</i>` : label;
+      if (!answer) return `<span class="material-blank">${inner}</span>`;
+      if (blankColorKeys) {
+        const c = optionColor(answer);
+        return `<span class="material-blank filled" style="color:${c.fg};background:${c.bg};border-color:${c.fg}">${label} <b>${answer}</b></span>`;
+      }
+      return `<span class="material-blank filled word">${inner} <b>${answer}</b></span>`;
     });
     return { __html: `<p>${withSlots.trim().replace(/\n\n+/g, '</p><p>').replace(/\n/g, '<br/>')}</p>` };
-  }, [material, blankSlots, blankReveals]);
+  }, [material, blankSlots, blankReveals, blankHints, blankColorKeys]);
 
   /** 重绘画布上已有的笔迹批注；可传入临时列表用于擦除预览 */
   const draw = useCallback((list: Annotation[] = annotations) => {

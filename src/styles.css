@@ -130,7 +130,20 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}
 .gap-blank-head{display:flex;align-items:center;gap:10px}
 .gap-blank-head b{font-size:13px;color:#34455c}
 .gap-blank-head button{margin-left:auto;font-size:11px;color:#397bd9;display:inline-flex;align-items:center}
+/* 语法填空：提示词与逐空行 */
+.grammar-hint{font-size:12px;color:#8a94a3;font-style:italic}
+.grammar-fill-question .gap-blank-row{border:1px solid #eef1f5}
+.markdown .material-blank i{font-style:italic;opacity:.7;margin-left:2px}
+.markdown .material-blank.word{color:#267b49}
 .gap-blank-row .explanation{margin:8px 0 0}
+/* 书面表达：题干、要点与作文纸 */
+.writing-prompt{white-space:pre-wrap;font-size:13.5px;line-height:1.7;color:#34455c}
+.writing-points{margin:10px 0 0 4px;padding-left:18px;color:#5a6a7e;font-size:13px;line-height:1.8}
+.writing-sheet{margin:14px 0 0;padding:14px;border:1px solid #e6eaf0;border-radius:10px;background:#fbfcfe}
+.writing-greeting,.writing-closing{font-family:Georgia,serif;font-size:14px;color:#34455c;line-height:1.6}
+.writing-closing{white-space:pre-wrap}
+.writing-lines{min-height:196px;background:repeating-linear-gradient(transparent,transparent 27px,#dfe5ee 27px,#dfe5ee 28px)}
+.writing-sample{font-family:Georgia,serif;font-size:14px;line-height:28px;color:#1f3a5f;white-space:pre-wrap}
 /* 完形填空：逐空独立选项 */
 .cloze-question .gap-blank-row{border:1px solid #eef1f5}
 .cloze-options .options{margin:8px 0 0}

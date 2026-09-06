@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Eye, EyeOff, RotateCcw } from 'lucide-react';
-import type { ClozeQuestion, DialogueChoiceQuestion, GapFillQuestion, Question, QuestionOption } from '../types';
+import type { ClozeQuestion, DialogueChoiceQuestion, GapFillQuestion, GrammarFillQuestion, Question, QuestionOption, WritingQuestion } from '../types';
 import { optionColor } from '../optionColors';
 
 interface QuestionsPaneProps {
@@ -313,6 +313,124 @@ function ClozeCard({
   );
 }
 
+/** 语法填空卡片：逐空预览答案与解析（可带括号提示词），无可点击选项 */
+function GrammarFillCard({
+  question,
+  index,
+  revealed,
+  onToggleBlank,
+  onSetAll,
+}: {
+  question: GrammarFillQuestion;
+  index: number;
+  /** 题号 label -> 是否已预览 */
+  revealed: Record<string, boolean>;
+  onToggleBlank: (label: string) => void;
+  onSetAll: (value: boolean) => void;
+}) {
+  const groupRevealed = question.blanks.length > 0 && question.blanks.every((b) => revealed[b.label]);
+
+  const firstLabel = question.blanks[0]?.label ?? String(index + 1);
+  const lastLabel = question.blanks[question.blanks.length - 1]?.label ?? firstLabel;
+
+  return (
+    <div className="question grammar-fill-question" id={`question-${index + 1}`}>
+      <div className="q-title">
+        <b>
+          第{firstLabel}
+          {firstLabel !== lastLabel ? `–${lastLabel}` : ''}题 · 语法填空
+        </b>
+        <span className="gap-actions">
+          <button className="gap-reset" onClick={() => onSetAll(false)} title="收起全部答案" aria-label="收起全部答案">
+            <RotateCcw size={13} />
+          </button>
+          <button
+            onClick={() => onSetAll(!groupRevealed)}
+            title={groupRevealed ? '隐藏全部答案' : '预览全部答案'}
+            aria-label={groupRevealed ? '隐藏全部答案' : '预览全部答案'}
+          >
+            {groupRevealed ? <EyeOff size={13} /> : <Eye size={13} />}
+          </button>
+        </span>
+      </div>
+      {question.blanks.length === 0 && <p className="dialogue-fallback">请在数据中配置 blanks（每个空对应题号、答案与解析，可含提示词）。</p>}
+      <div className="gap-blanks">
+        {question.blanks.map((blank) => {
+          const isRevealed = !!revealed[blank.label];
+          return (
+            <div className="gap-blank-row" key={blank.label}>
+              <div className="gap-blank-head">
+                <b>第{blank.label}题</b>
+                {blank.hint ? <span className="grammar-hint">({blank.hint})</span> : <span className="grammar-hint">填入 1 个适当的单词</span>}
+                <button
+                  onClick={() => onToggleBlank(blank.label)}
+                  title={isRevealed ? '隐藏答案' : '预览答案'}
+                  aria-label={isRevealed ? '隐藏答案' : '预览答案'}
+                >
+                  {isRevealed ? <EyeOff size={13} /> : <Eye size={13} />}
+                </button>
+              </div>
+              {isRevealed && (
+                <div className="explanation">
+                  <strong>答案：{blank.answer}</strong>
+                  {blank.explanation && <p>{blank.explanation}</p>}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** 书面表达卡片：作文纸框架 + 参考范文预览 */
+function WritingCard({
+  question,
+  index,
+  revealed,
+  onToggle,
+}: {
+  question: WritingQuestion;
+  index: number;
+  revealed: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="question writing-question" id={`question-${index + 1}`}>
+      <div className="q-title">
+        <b>第{index + 1}题 · 书面表达</b>
+        <button onClick={onToggle} title={revealed ? '隐藏范文' : '预览范文'} aria-label={revealed ? '隐藏范文' : '预览范文'}>
+          {revealed ? <EyeOff size={13} /> : <Eye size={13} />}
+        </button>
+      </div>
+      <p className="writing-prompt">{question.prompt}</p>
+      {question.points && question.points.length > 0 && (
+        <ul className="writing-points">
+          {question.points.map((p, i) => (
+            <li key={i}>{p}</li>
+          ))}
+        </ul>
+      )}
+      <div className="writing-sheet">
+        {question.greeting && <p className="writing-greeting">{question.greeting}</p>}
+        {revealed && question.sample ? (
+          <p className="writing-sample">{question.sample}</p>
+        ) : (
+          <div className="writing-lines" aria-hidden="true" />
+        )}
+        {question.closing && <p className="writing-closing">{question.closing}</p>}
+      </div>
+      {revealed && (
+        <div className="explanation">
+          <strong>参考范文</strong>
+          {question.comment && <p>{question.comment}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** 单题的选项列表 + 答案解析展示 */
 function QuestionCard({
   question,
@@ -322,7 +440,7 @@ function QuestionCard({
   onToggle,
   onPick,
 }: {
-  question: Exclude<Question, GapFillQuestion | ClozeQuestion>;
+  question: Exclude<Question, GapFillQuestion | ClozeQuestion | GrammarFillQuestion | WritingQuestion>;
   index: number;
   revealed: boolean;
   picked?: string;
@@ -371,7 +489,7 @@ export function QuestionsPane({ questions, meta, blank }: QuestionsPaneProps) {
   const allRevealed =
     questions.length > 0 &&
     questions.every((q, i) =>
-      q.type === 'gap-fill' || q.type === 'cloze'
+      q.type === 'gap-fill' || q.type === 'cloze' || q.type === 'grammar-fill'
         ? q.blanks.every((b) => !!blank?.revealed[b.label])
         : !!revealed[keyOf(q, i)],
     );
@@ -384,7 +502,7 @@ export function QuestionsPane({ questions, meta, blank }: QuestionsPaneProps) {
     }
     const next: Record<string, boolean> = {};
     questions.forEach((q, i) => {
-      if (q.type !== 'gap-fill' && q.type !== 'cloze') next[keyOf(q, i)] = true;
+      if (q.type !== 'gap-fill' && q.type !== 'cloze' && q.type !== 'grammar-fill') next[keyOf(q, i)] = true;
     });
     setRevealed(next);
     blank?.onSetAll(true);
@@ -447,6 +565,29 @@ export function QuestionsPane({ questions, meta, blank }: QuestionsPaneProps) {
                 onToggleBlank={(label) => blank?.onToggleBlank(label)}
                 onSetBlank={onSetBlank}
                 onSetAll={(value) => blank?.onSetAll(value)}
+              />
+            );
+          }
+          if (q.type === 'grammar-fill') {
+            return (
+              <GrammarFillCard
+                key={key}
+                question={q}
+                index={i}
+                revealed={blank?.revealed ?? {}}
+                onToggleBlank={(label) => blank?.onToggleBlank(label)}
+                onSetAll={(value) => blank?.onSetAll(value)}
+              />
+            );
+          }
+          if (q.type === 'writing') {
+            return (
+              <WritingCard
+                key={key}
+                question={q}
+                index={i}
+                revealed={!!revealed[key]}
+                onToggle={() => toggleOne(key)}
               />
             );
           }
