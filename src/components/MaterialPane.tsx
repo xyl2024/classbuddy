@@ -12,6 +12,29 @@ const ERASER_HIT_RADIUS = 14;
 /** 画笔可选颜色与粗细 */
 const PEN_COLORS = ['#2e6fdf', '#d05a4e', '#ef8c47', '#267b49', '#7a4fd0', '#233247'];
 
+/** 将点列绘制为平滑笔触：先抽稀过近的点，再用中点二次贝塞尔连线 */
+function strokePath(ctx: CanvasRenderingContext2D, points: [number, number][]) {
+  const pts: [number, number][] = [];
+  for (const p of points) {
+    const last = pts[pts.length - 1];
+    if (!last || Math.hypot(p[0] - last[0], p[1] - last[1]) > 1.5) pts.push(p);
+  }
+  if (pts.length < 2) return;
+  ctx.beginPath();
+  ctx.moveTo(pts[0][0], pts[0][1]);
+  if (pts.length === 2) {
+    ctx.lineTo(pts[1][0], pts[1][1]);
+  } else {
+    for (let i = 1; i < pts.length - 1; i++) {
+      const midX = (pts[i][0] + pts[i + 1][0]) / 2;
+      const midY = (pts[i][1] + pts[i + 1][1]) / 2;
+      ctx.quadraticCurveTo(pts[i][0], pts[i][1], midX, midY);
+    }
+    ctx.lineTo(...pts[pts.length - 1]);
+  }
+  ctx.stroke();
+}
+
 interface SelectionPopup {
   x: number;
   y: number;
@@ -121,16 +144,16 @@ export function MaterialPane({
     const host = materialRef.current;
     if (!canvas || !host) return;
     const ctx = canvas.getContext('2d')!;
+    const dpr = window.devicePixelRatio || 1;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
     for (const a of list) {
       if (a.type === 'highlight' || !a.points?.length) continue;
       ctx.lineWidth = a.width ?? 3;
       ctx.strokeStyle = a.type === 'line' ? '#ef6c47' : (a.color ?? '#2e6fdf');
-      ctx.beginPath();
-      ctx.moveTo(...a.points[0]);
-      a.points.slice(1).forEach((p) => ctx.lineTo(...p));
-      ctx.stroke();
+      strokePath(ctx, a.points);
     }
   }, [annotations]);
 
@@ -141,12 +164,13 @@ export function MaterialPane({
     const points = drawingPoints.current;
     if (!canvas || !points.length) return;
     const ctx = canvas.getContext('2d')!;
+    const dpr = window.devicePixelRatio || 1;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
     ctx.strokeStyle = penColor;
     ctx.lineWidth = penWidth;
-    ctx.beginPath();
-    ctx.moveTo(...points[0]);
-    points.slice(1).forEach((p) => ctx.lineTo(...p));
-    ctx.stroke();
+    strokePath(ctx, points);
   }, [draw, penColor, penWidth]);
 
   /** 画布尺寸跟随材料区尺寸 */
@@ -155,8 +179,12 @@ export function MaterialPane({
     const host = materialRef.current;
     if (!canvas || !host) return;
     const resize = () => {
-      canvas.width = host.clientWidth;
-      canvas.height = host.scrollHeight;
+      // 画布物理像素乘以 dpr，避免高分屏/缩放下笔迹模糊
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = host.clientWidth * dpr;
+      canvas.height = host.scrollHeight * dpr;
+      canvas.style.width = `${host.clientWidth}px`;
+      canvas.style.height = `${host.scrollHeight}px`;
       draw();
     };
     resize();
@@ -241,7 +269,7 @@ export function MaterialPane({
       list.find(
         (a) =>
           (a.type === 'freehand' || a.type === 'line') &&
-          a.points?.some((q) => Math.hypot(q[0] - p[0], q[1] - p[1]) < ERASER_HIT_RADIUS),
+          a.points?.some((q) => Math.hypot(q[0] - p[0], q[1] - p[1]) < ERASER_HIT_RADIUS + (a.width ?? 3) / 2),
       )?.id ??
       hitTextAnnotation(
         [p[0] + (canvasRef.current?.getBoundingClientRect().left ?? 0), p[1] + (canvasRef.current?.getBoundingClientRect().top ?? 0)],
