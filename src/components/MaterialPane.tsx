@@ -9,6 +9,9 @@ const HIGHLIGHT_NAME = 'cb-highlight';
 const UNDERLINE_NAME = 'cb-underline';
 const ERASER_HIT_RADIUS = 14;
 
+/** 画笔可选颜色与粗细 */
+const PEN_COLORS = ['#2e6fdf', '#d05a4e', '#ef8c47', '#267b49', '#7a4fd0', '#233247'];
+
 interface SelectionPopup {
   x: number;
   y: number;
@@ -86,6 +89,9 @@ export function MaterialPane({
   const articleRef = useRef<HTMLElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingPoints = useRef<[number, number][]>([]);
+  /** 画笔颜色与粗细（工具栏内联设置，切题后保留） */
+  const [penColor, setPenColor] = useState(PEN_COLORS[0]);
+  const [penWidth, setPenWidth] = useState(3);
   const [selPopup, setSelPopup] = useState<SelectionPopup | null>(null);
   const [noteEditor, setNoteEditor] = useState<NoteEditor | null>(null);
   /** 选择工具下鼠标是否悬停在文本批注上，用于切换可点击光标 */
@@ -116,11 +122,11 @@ export function MaterialPane({
     if (!canvas || !host) return;
     const ctx = canvas.getContext('2d')!;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.lineWidth = 3;
     ctx.lineCap = 'round';
     for (const a of list) {
       if (a.type === 'highlight' || !a.points?.length) continue;
-      ctx.strokeStyle = a.type === 'line' ? '#ef6c47' : '#2e6fdf';
+      ctx.lineWidth = a.width ?? 3;
+      ctx.strokeStyle = a.type === 'line' ? '#ef6c47' : (a.color ?? '#2e6fdf');
       ctx.beginPath();
       ctx.moveTo(...a.points[0]);
       a.points.slice(1).forEach((p) => ctx.lineTo(...p));
@@ -135,13 +141,13 @@ export function MaterialPane({
     const points = drawingPoints.current;
     if (!canvas || !points.length) return;
     const ctx = canvas.getContext('2d')!;
-    ctx.strokeStyle = '#2e6fdf';
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = penColor;
+    ctx.lineWidth = penWidth;
     ctx.beginPath();
     ctx.moveTo(...points[0]);
     points.slice(1).forEach((p) => ctx.lineTo(...p));
     ctx.stroke();
-  }, [draw]);
+  }, [draw, penColor, penWidth]);
 
   /** 画布尺寸跟随材料区尺寸 */
   useEffect(() => {
@@ -286,7 +292,7 @@ export function MaterialPane({
     }
     const points = drawingPoints.current;
     if (tool !== 'freehand' || !points.length) return;
-    onCommit([...annotations, { id: uid(), type: 'freehand', points }]);
+    onCommit([...annotations, { id: uid(), type: 'freehand', points, color: penColor, width: penWidth }]);
     drawingPoints.current = [];
   };
 
@@ -413,13 +419,37 @@ export function MaterialPane({
         <canvas ref={canvasRef} className="annotation-canvas" />
       </div>
       <div className="pane-foot">
-        <button className={tool === 'select' ? 'selected' : ''} onClick={() => onToolChange('select')}><MousePointer2 size={14} /> 选择</button>
-        <button className={tool === 'freehand' ? 'selected' : ''} onClick={() => onToolChange('freehand')}><PenLine size={14} /> 画笔</button>
-        <button className={tool === 'eraser' ? 'selected' : ''} onClick={() => onToolChange('eraser')}><Eraser size={14} /> 橡皮擦</button>
+        <button className={tool === 'select' ? 'selected' : ''} title="选择" onClick={() => onToolChange('select')}><MousePointer2 size={14} /></button>
+        <button className={tool === 'freehand' ? 'selected' : ''} title="画笔" onClick={() => onToolChange('freehand')}><PenLine size={14} /></button>
+        {tool === 'freehand' && (
+          <span className="pen-options">
+            {PEN_COLORS.map((c) => (
+              <button
+                key={c}
+                className={`pen-color${penColor === c ? ' selected' : ''}`}
+                title="画笔颜色"
+                onClick={() => setPenColor(c)}
+              >
+                <i style={{ background: c }} />
+              </button>
+            ))}
+            <span className="pen-sep" />
+            <span className="pen-width-ctl" title="画笔粗细">
+              <input
+                type="range"
+                min={1}
+                max={12}
+                value={penWidth}
+                onChange={(e) => setPenWidth(Number(e.target.value))}
+              />
+            </span>
+          </span>
+ )}
+        <button className={tool === 'eraser' ? 'selected' : ''} title="橡皮擦" onClick={() => onToolChange('eraser')}><Eraser size={14} /></button>
         <div className="foot-actions">
-          <button onClick={onUndo} disabled={!canUndo}><Undo2 size={14} /> 撤销</button>
-          <button onClick={onRedo} disabled={!canRedo}><Redo2 size={14} /> 重做</button>
-          <button className="danger" onClick={onClear}><Trash2 size={14} /> 清空批注</button>
+          <button title="撤销" onClick={onUndo} disabled={!canUndo}><Undo2 size={14} /></button>
+          <button title="重做" onClick={onRedo} disabled={!canRedo}><Redo2 size={14} /></button>
+          <button className="danger" title="清空批注" onClick={onClear}><Trash2 size={14} /></button>
         </div>
       </div>
       {selPopup && (

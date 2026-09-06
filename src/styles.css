@@ -94,6 +94,16 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}
 .foot-actions button:not(:disabled):hover{background:#edf4ff;color:#3176d8}
 .foot-actions .danger{color:#d05a4e}
 .foot-actions .danger:not(:disabled):hover{background:#fdeeed;color:#c04437}
+/* 画笔颜色与粗细内联设置 */
+.pen-options{display:inline-flex;align-items:center;gap:3px;padding-left:8px;margin-left:4px;border-left:1px solid #edf0f4}
+.pen-options button{width:24px;height:30px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px}
+.pen-options button:hover{background:#edf4ff}
+.pen-options button.selected{background:#edf4ff;box-shadow:0 0 0 1px #9cc0f5}
+.pen-options i{display:block;border-radius:50%}
+.pen-color i{width:13px;height:13px}
+.pen-sep{width:1px;height:16px;background:#e3e9f0;margin:0 2px}
+.pen-width-ctl{display:inline-flex;align-items:center;padding:0 4px}
+.pen-width-ctl input[type=range]{width:78px;accent-color:#2e6fdf;height:14px}
 
 /* 题目区：隐藏原生滚动条 */
 .questions-pane{min-width:0}

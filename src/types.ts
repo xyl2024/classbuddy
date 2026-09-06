@@ -12,7 +12,10 @@ export interface Annotation {
   points?: [number, number][];
   /** 文本批注附带的笔记（点击高亮/划线内容填写） */
   note?: string;
+  /** 笔迹批注（freehand）的画笔颜色 */
   color?: string;
+  /** 笔迹批注（freehand）的画笔粗细（lineWidth） */
+  width?: number;
 }
 
 export interface Item {
