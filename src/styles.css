@@ -24,7 +24,7 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}
 
 /* 左侧边栏：仅展示当前试卷的试题组 */
 .brand{font-family:'Playfair Display',serif;font-size:20px;font-weight:700;margin:0 0 18px;padding:2px 6px;white-space:nowrap;overflow:hidden;align-self:flex-start;cursor:pointer}
-.sidebar{width:220px;flex-shrink:0;background:#fff;border:1px solid #e8edf3;border-radius:12px;margin:18px 0 18px 18px;padding:22px 14px;overflow-y:auto;scrollbar-width:none;display:flex;flex-direction:column}
+.sidebar{width:180px;flex-shrink:0;background:#fff;border:1px solid #e8edf3;border-radius:12px;margin:18px 0 18px 18px;padding:22px 14px;overflow-y:auto;scrollbar-width:none;display:flex;flex-direction:column}
 .sidebar::-webkit-scrollbar{display:none}
 .exam-name{font-size:12px;font-weight:bold;color:#99a4b1;text-transform:uppercase;letter-spacing:1px;margin:0 10px 14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .item-icon{color:#a7b2bf;flex-shrink:0}
@@ -35,7 +35,7 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}
 
 /* 主区域 */
 .main{flex:1;min-width:0;display:flex;flex-direction:column}
-.panes{display:grid;grid-template-columns:2fr 1fr;flex:1;min-height:0;gap:18px;padding:18px}
+.panes{display:grid;grid-template-columns:1.8fr 1.2fr;flex:1;min-height:0;gap:18px;padding:18px}
 .panes.single-pane{display:block;padding:18px 4%;overflow:hidden}
 .material-pane,.questions-pane{background:#fff;border:1px solid #e8edf3;border-radius:12px;min-height:0;display:flex;flex-direction:column;overflow:hidden}
 .panes.single-pane .questions-pane{height:100%;max-width:1280px;margin:0 auto}
@@ -113,7 +113,7 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}
 .questions::-webkit-scrollbar{display:none}
 .question{padding:18px 4px;border-bottom:1px solid #edf0f4}
 .q-title{display:grid;grid-template-columns:1fr auto;gap:9px;align-items:start}
-.q-title b{font-size:14px;line-height:1.5}
+.q-title b{font-size:16px;line-height:1.5}
 .q-title button{font-size:11px;color:#397bd9;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;margin-top:2px}
 .dialogue{display:flex;flex-direction:column;gap:5px;margin:15px 0 4px;padding:4px 8px;font-family:Georgia,serif;color:#364659;font-size:15px;line-height:1.8}
 .dialogue-line{display:flex;align-items:baseline;overflow-wrap:anywhere}
@@ -161,7 +161,7 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}
 .options{display:grid;gap:7px;margin:14px 0 0 4px}
 .dialogue-question .options{display:flex;flex-wrap:wrap;gap:14px 28px;margin-left:4px}
 .dialogue-question .option{flex:0 0 auto;min-width:150px}
-.option{display:flex;gap:8px;padding:9px;border-radius:7px;font-size:13px;line-height:1.4}
+.option{display:flex;gap:8px;padding:9px;border-radius:7px;font-size:15px;line-height:1.4}
 .option b{color:#7e8a99}
 .option.correct{background:#eaf7ef;color:#267b49}
 .option.correct b{color:#267b49}
@@ -169,8 +169,8 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}
 .option:hover{background:#f1f4f8}
 .option.wrong{background:#fdecec;color:#c0392b}
 .option.wrong b{color:#c0392b}
-.explanation{margin:10px 0 0 37px;padding:12px;background:#fff8e9;border:1px solid #f8e7b7;border-radius:8px;font-size:12px;color:#765c21}
-.explanation p{margin:7px 0 0;line-height:1.6}
+.explanation{margin:10px 0 0 37px;padding:12px;background:#fff8e9;border:1px solid #f8e7b7;border-radius:8px;font-size:14px;color:#765c21}
+.explanation p{margin:7px 0 0;line-height:1.6;font-size:13px}
 
 /* 空状态与提示 */
 .empty{margin:auto;text-align:center;color:#a1acb9}
@@ -182,7 +182,7 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}
 .change-toast button+button{color:#b4bdc8}
 
 @media(max-width:900px){
-  .sidebar{width:190px}
+  .sidebar{width:160px}
   .panes{grid-template-columns:1fr}
   .panes.single-pane{padding:12px}
   .questions-pane{min-height:450px}

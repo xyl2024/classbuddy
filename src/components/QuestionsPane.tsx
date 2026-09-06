@@ -455,8 +455,8 @@ function QuestionCard({
           {isDialogue
             ? `第${index + 1}题`
             : question.question.includes('{{blank}}')
-              ? <BlankText text={question.question} options={question.options} revealed={revealed} answer={question.options.find((o) => o.key === question.answer)?.text ?? question.answer} />
-              : question.question}
+              ? <><span style={{marginRight: 6, color: '#397bd9'}}>{index + 1}.</span><BlankText text={question.question} options={question.options} revealed={revealed} answer={question.options.find((o) => o.key === question.answer)?.text ?? question.answer} /></>
+              : <><span style={{marginRight: 6, color: '#397bd9'}}>{index + 1}.</span>{question.question}</>}
         </b>
         <button onClick={onToggle} title={revealed ? '隐藏答案' : '预览答案'} aria-label={revealed ? '隐藏答案' : '预览答案'}>
           {revealed ? <EyeOff size={13} /> : <Eye size={13} />}
