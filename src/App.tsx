@@ -7,7 +7,7 @@ import { MaterialPane } from './components/MaterialPane';
 import { QuestionsPane } from './components/QuestionsPane';
 import { EmptyState } from './components/EmptyState';
 import { ChangeToast } from './components/ChangeToast';
-import type { Exam, GapFillQuestion, ItemData, Selected, Tool } from './types';
+import type { ClozeQuestion, Exam, GapFillQuestion, ItemData, Question, Selected, Tool } from './types';
 
 /** 从路径解析路由：/ -> 首页；/:examId -> 工作台；/:examId/:itemId -> 指定试题组 */
 function parsePath(pathname: string): { exam?: string; item?: string } {
@@ -17,9 +17,13 @@ function parsePath(pathname: string): { exam?: string; item?: string } {
   return {};
 }
 
-/** 选句填空题：缺空的短文本质就是材料，左侧材料区直接展示短文 */
+/** 内嵌短文的题型：选句填空 / 完形填空 */
+const isPassageQuestion = (q: Question): q is GapFillQuestion | ClozeQuestion =>
+  (q.type === 'gap-fill' || q.type === 'cloze') && !!q.passage;
+
+/** 内嵌短文的题：短文本质就是材料，左侧材料区直接展示短文 */
 const materialOf = (data: ItemData) =>
-  data.questions.find((q): q is GapFillQuestion => q.type === 'gap-fill' && !!q.passage)?.passage ?? data.material;
+  data.questions.find(isPassageQuestion)?.passage ?? data.material;
 
 export default function App() {
   const [exams, setExams] = useState<Exam[]>([]);
@@ -34,21 +38,21 @@ export default function App() {
 
   const { annotations, reset, commit, save, undo, redo, canUndo, canRedo } = useAnnotations(selected);
 
-  /** 当前试题组中的选句填空题（若有） */
-  const gapFillQuestion = data?.questions.find((q): q is GapFillQuestion => q.type === 'gap-fill');
+  /** 当前试题组中内嵌短文的题（选句填空/完形填空，若有） */
+  const passageQuestion = data?.questions.find(isPassageQuestion);
 
   /** 已预览空的答案映射，同步到材料区空槽 */
   const blankReveals = useMemo(() => {
     const map: Record<string, string> = {};
-    if (gapFillQuestion) {
-      for (const b of gapFillQuestion.blanks) {
+    if (passageQuestion) {
+      for (const b of passageQuestion.blanks) {
         if (gapRevealed[b.label]) map[b.label] = b.answer;
       }
     }
     return map;
-  }, [gapFillQuestion, gapRevealed]);
+  }, [passageQuestion, gapRevealed]);
 
-  /** 切换试题组时收起选句填空答案 */
+  /** 切换试题组时收起选句填空/完形填空答案 */
   useEffect(() => {
     setGapRevealed({});
   }, [selected]);
@@ -171,7 +175,7 @@ export default function App() {
             {data.meta.sectionType !== 'situational-communication' && (
               <MaterialPane
                 material={materialOf(data)}
-                blankSlots={data.meta.sectionType === 'gap-fill'}
+                blankSlots={data.meta.sectionType === 'gap-fill' || data.meta.sectionType === 'cloze'}
                 blankReveals={blankReveals}
                 title={data.meta.name || selected.item}
                 tool={tool}
@@ -188,12 +192,13 @@ export default function App() {
             <QuestionsPane
               questions={data.questions}
               meta={data.meta}
-              gap={{
+              blank={{
                 revealed: gapRevealed,
                 onToggleBlank: (label) => setGapRevealed((s) => ({ ...s, [label]: !s[label] })),
+                onSetBlank: (label, value) => setGapRevealed((s) => ({ ...s, [label]: value })),
                 onSetAll: (value) => {
                   const next: Record<string, boolean> = {};
-                  gapFillQuestion?.blanks.forEach((b) => { next[b.label] = value; });
+                  passageQuestion?.blanks.forEach((b) => { next[b.label] = value; });
                   setGapRevealed(next);
                 },
               }}

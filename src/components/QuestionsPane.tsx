@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Eye, EyeOff, RotateCcw } from 'lucide-react';
-import type { DialogueChoiceQuestion, GapFillQuestion, Question, QuestionOption } from '../types';
+import type { ClozeQuestion, DialogueChoiceQuestion, GapFillQuestion, Question, QuestionOption } from '../types';
 import { optionColor } from '../optionColors';
 
 interface QuestionsPaneProps {
@@ -12,10 +12,11 @@ interface QuestionsPaneProps {
     totalScore?: number;
     description?: string;
   };
-  /** 选句填空：跨面板共享的逐空预览状态（App 持有，材料区空槽同步显示答案） */
-  gap?: {
+  /** 内嵌短文题（选句填空/完形填空）：跨面板共享的逐空预览状态（App 持有，材料区空槽同步显示答案） */
+  blank?: {
     revealed: Record<string, boolean>;
     onToggleBlank: (label: string) => void;
+    onSetBlank: (label: string, value: boolean) => void;
     onSetAll: (value: boolean) => void;
   };
 }
@@ -208,6 +209,110 @@ function GapFillCard({
   );
 }
 
+/** 完形填空卡片：逐空列出独立选项，选错标红并展示解析，选对视为预览答案 */
+function ClozeCard({
+  question,
+  index,
+  revealed,
+  onToggleBlank,
+  onSetBlank,
+  onSetAll,
+}: {
+  question: ClozeQuestion;
+  index: number;
+  /** 题号 label -> 是否已预览 */
+  revealed: Record<string, boolean>;
+  onToggleBlank: (label: string) => void;
+  onSetBlank: (label: string, value: boolean) => void;
+  onSetAll: (value: boolean) => void;
+}) {
+  /** 每空的课堂点击选择（题号 -> 选中的选项 key），仅用于标红错误选项 */
+  const [picked, setPicked] = useState<Record<string, string>>({});
+
+  const groupRevealed = question.blanks.length > 0 && question.blanks.every((b) => revealed[b.label]);
+
+  const firstLabel = question.blanks[0]?.label ?? String(index + 1);
+  const lastLabel = question.blanks[question.blanks.length - 1]?.label ?? firstLabel;
+
+  /** 收起某空答案时同时清除该空的点击选择 */
+  const toggleBlank = (label: string) => {
+    if (revealed[label]) setPicked((s) => ({ ...s, [label]: '' }));
+    onToggleBlank(label);
+  };
+
+  /** 点击选项：选错标红并预览答案解析，选对视为预览答案 */
+  const pickBlank = (label: string, optionKey: string) => {
+    setPicked((s) => ({ ...s, [label]: optionKey }));
+    onSetBlank(label, true);
+  };
+
+  return (
+    <div className="question cloze-question" id={`question-${index + 1}`}>
+      <div className="q-title">
+        <b>
+          第{firstLabel}
+          {firstLabel !== lastLabel ? `–${lastLabel}` : ''}题 · 完形填空
+        </b>
+        <span className="gap-actions">
+          <button
+            className="gap-reset"
+            onClick={() => {
+              setPicked({});
+              onSetAll(false);
+            }}
+            title="收起全部答案"
+            aria-label="收起全部答案"
+          >
+            <RotateCcw size={13} />
+          </button>
+          <button
+            onClick={() => onSetAll(!groupRevealed)}
+            title={groupRevealed ? '隐藏全部答案' : '预览全部答案'}
+            aria-label={groupRevealed ? '隐藏全部答案' : '预览全部答案'}
+          >
+            {groupRevealed ? <EyeOff size={13} /> : <Eye size={13} />}
+          </button>
+        </span>
+      </div>
+      {question.blanks.length === 0 && <p className="dialogue-fallback">请在数据中配置 blanks（每个空对应题号、选项、答案与解析）。</p>}
+      <div className="gap-blanks">
+        {question.blanks.map((blank) => {
+          const isRevealed = !!revealed[blank.label];
+          const color = optionColor(blank.answer);
+          return (
+            <div className="gap-blank-row" key={blank.label}>
+              <div className="gap-blank-head">
+                <b>第{blank.label}题</b>
+                <button
+                  onClick={() => toggleBlank(blank.label)}
+                  title={isRevealed ? '隐藏答案' : '预览答案'}
+                  aria-label={isRevealed ? '隐藏答案' : '预览答案'}
+                >
+                  {isRevealed ? <EyeOff size={13} /> : <Eye size={13} />}
+                </button>
+              </div>
+              <div className="cloze-options">
+                <QuestionOptions
+                  question={blank}
+                  revealed={isRevealed}
+                  picked={picked[blank.label]}
+                  onPick={(optionKey) => pickBlank(blank.label, optionKey)}
+                />
+              </div>
+              {isRevealed && (
+                <div className="explanation">
+                  <strong style={{ color: color.fg }}>答案：{blank.answer}</strong>
+                  {blank.explanation && <p>{blank.explanation}</p>}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /** 单题的选项列表 + 答案解析展示 */
 function QuestionCard({
   question,
@@ -217,7 +322,7 @@ function QuestionCard({
   onToggle,
   onPick,
 }: {
-  question: Exclude<Question, GapFillQuestion>;
+  question: Exclude<Question, GapFillQuestion | ClozeQuestion>;
   index: number;
   revealed: boolean;
   picked?: string;
@@ -252,7 +357,7 @@ function QuestionCard({
   );
 }
 
-export function QuestionsPane({ questions, meta, gap }: QuestionsPaneProps) {
+export function QuestionsPane({ questions, meta, blank }: QuestionsPaneProps) {
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
   const [picked, setPicked] = useState<Record<string, string>>({});
 
@@ -266,28 +371,31 @@ export function QuestionsPane({ questions, meta, gap }: QuestionsPaneProps) {
   const allRevealed =
     questions.length > 0 &&
     questions.every((q, i) =>
-      q.type === 'gap-fill'
-        ? q.blanks.every((b) => !!gap?.revealed[b.label])
+      q.type === 'gap-fill' || q.type === 'cloze'
+        ? q.blanks.every((b) => !!blank?.revealed[b.label])
         : !!revealed[keyOf(q, i)],
     );
 
   const toggleAll = () => {
     if (allRevealed) {
       setRevealed({});
-      gap?.onSetAll(false);
+      blank?.onSetAll(false);
       return;
     }
     const next: Record<string, boolean> = {};
     questions.forEach((q, i) => {
-      if (q.type !== 'gap-fill') next[keyOf(q, i)] = true;
+      if (q.type !== 'gap-fill' && q.type !== 'cloze') next[keyOf(q, i)] = true;
     });
     setRevealed(next);
-    gap?.onSetAll(true);
+    blank?.onSetAll(true);
   };
 
   const toggleOne = (key: string) => {
     setRevealed((s) => ({ ...s, [key]: !s[key] }));
   };
+
+  /** 预览/隐藏某个空（选句填空/完形填空），与材料区空槽同步 */
+  const onSetBlank = (label: string, value: boolean) => blank?.onSetBlank(label, value);
 
   /** 点击选项：选错则标红并展示答案解析，选对则视为预览答案 */
   const pickOne = (key: string, optionKey: string) => {
@@ -323,9 +431,22 @@ export function QuestionsPane({ questions, meta, gap }: QuestionsPaneProps) {
                 key={key}
                 question={q}
                 index={i}
-                revealed={gap?.revealed ?? {}}
-                onToggleBlank={(label) => gap?.onToggleBlank(label)}
-                onSetAll={(value) => gap?.onSetAll(value)}
+                revealed={blank?.revealed ?? {}}
+                onToggleBlank={(label) => blank?.onToggleBlank(label)}
+                onSetAll={(value) => blank?.onSetAll(value)}
+              />
+            );
+          }
+          if (q.type === 'cloze') {
+            return (
+              <ClozeCard
+                key={key}
+                question={q}
+                index={i}
+                revealed={blank?.revealed ?? {}}
+                onToggleBlank={(label) => blank?.onToggleBlank(label)}
+                onSetBlank={onSetBlank}
+                onSetAll={(value) => blank?.onSetAll(value)}
               />
             );
           }

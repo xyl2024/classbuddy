@@ -75,8 +75,27 @@ export interface GapFillQuestion {
   blanks: GapFillBlank[];
 }
 
-/** 兼容旧版普通选择题，支持情景交际对话补全题与七选五选句填空题 */
-export type Question = ChoiceQuestion | DialogueChoiceQuestion | GapFillQuestion;
+/** 完形填空：整篇短文 + 逐空独立选项与答案 */
+export interface ClozeBlank {
+  /** 题号（与试卷编号一致，如 "21"） */
+  label: string;
+  /** 本空的四个备选项 */
+  options: QuestionOption[];
+  /** 正确选项 key */
+  answer: string;
+  explanation?: string;
+}
+
+export interface ClozeQuestion {
+  id?: string;
+  type: 'cloze';
+  /** 短文原文，空位用 {{blank:21}} 标记 */
+  passage: string;
+  blanks: ClozeBlank[];
+}
+
+/** 兼容旧版普通选择题，支持情景交际对话补全题、七选五选句填空题与完形填空题 */
+export type Question = ChoiceQuestion | DialogueChoiceQuestion | GapFillQuestion | ClozeQuestion;
 
 export interface ItemMeta {
   name?: string;
