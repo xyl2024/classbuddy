@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Eye, EyeOff, RotateCcw } from 'lucide-react';
-import type { ClozeQuestion, DialogueChoiceQuestion, GapFillQuestion, GrammarFillQuestion, Question, QuestionOption, WritingQuestion } from '../types';
+import { AnnotationSurface } from './AnnotationSurface';
+import type { Annotation, ClozeQuestion, DialogueChoiceQuestion, GapFillQuestion, GrammarFillQuestion, Question, QuestionOption, Tool, WritingQuestion } from '../types';
 import { optionColor } from '../optionColors';
 
 interface QuestionsPaneProps {
@@ -12,6 +13,17 @@ interface QuestionsPaneProps {
     totalScore?: number;
     description?: string;
   };
+  /** 题目区的批注列表（已按 target 过滤） */
+  annotations: Annotation[];
+  /** 提交题目区批注列表的完整新值 */
+  onCommit: (next: Annotation[]) => void;
+  /** 当前批注工具与画笔设置（与材料区共享） */
+  tool: Tool;
+  onToolChange: (tool: Tool) => void;
+  penColor: string;
+  onPenColorChange: (color: string) => void;
+  penWidth: number;
+  onPenWidthChange: (width: number) => void;
   /** 内嵌短文题（选句填空/完形填空）：跨面板共享的逐空预览状态（App 持有，材料区空槽同步显示答案） */
   blank?: {
     revealed: Record<string, boolean>;
@@ -475,7 +487,7 @@ function QuestionCard({
   );
 }
 
-export function QuestionsPane({ questions, meta, blank }: QuestionsPaneProps) {
+export function QuestionsPane({ questions, meta, annotations, onCommit, tool, onToolChange, penColor, onPenColorChange, penWidth, onPenWidthChange, blank }: QuestionsPaneProps) {
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
   const [picked, setPicked] = useState<Record<string, string>>({});
 
@@ -540,7 +552,21 @@ export function QuestionsPane({ questions, meta, blank }: QuestionsPaneProps) {
           {allRevealed ? <EyeOff size={14} /> : <Eye size={14} />}
         </button>
       </div>
-      <div className="questions">
+      <AnnotationSurface
+        scrollClass="questions-scroll"
+        target="questions"
+        highlightId="q"
+        annotations={annotations}
+        onCommit={onCommit}
+        tool={tool}
+        onToolChange={onToolChange}
+        penColor={penColor}
+        onPenColorChange={onPenColorChange}
+        penWidth={penWidth}
+        onPenWidthChange={onPenWidthChange}
+        excludeSelector=".explanation, .blank-slot, .writing-sample"
+      >
+        <div className="questions">
         {questions.map((q, i) => {
           const key = keyOf(q, i);
           if (q.type === 'gap-fill') {
@@ -603,7 +629,8 @@ export function QuestionsPane({ questions, meta, blank }: QuestionsPaneProps) {
             />
           );
         })}
-      </div>
+        </div>
+      </AnnotationSurface>
     </section>
   );
 }

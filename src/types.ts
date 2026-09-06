@@ -1,9 +1,14 @@
 /** 批注类型：文本高亮 / 划线（基于文本偏移量），自由笔迹 / 直线（基于画布坐标点） */
 export type AnnotationType = 'highlight' | 'underline' | 'freehand' | 'line';
 
+/** 批注所属区域：材料区 / 题目区（缺省视为材料区，兼容旧数据） */
+export type AnnotationTarget = 'material' | 'questions';
+
 export interface Annotation {
   id: string;
   type: AnnotationType;
+  /** 所属面板：文本批注偏移量相对对应面板的全文，笔迹坐标相对对应面板的画布 */
+  target?: AnnotationTarget;
   /** 文本批注（highlight/underline）：在材料全文中的字符偏移区间 */
   start?: number;
   end?: number;

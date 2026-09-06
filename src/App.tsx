@@ -5,9 +5,10 @@ import { Sidebar } from './components/Sidebar';
 import { HomePage } from './components/HomePage';
 import { MaterialPane } from './components/MaterialPane';
 import { QuestionsPane } from './components/QuestionsPane';
+import { AnnotationToolbar } from './components/AnnotationSurface';
 import { EmptyState } from './components/EmptyState';
 import { ChangeToast } from './components/ChangeToast';
-import type { ClozeQuestion, Exam, GapFillQuestion, GrammarFillQuestion, ItemData, Question, Selected, Tool } from './types';
+import type { Annotation, AnnotationTarget, ClozeQuestion, Exam, GapFillQuestion, GrammarFillQuestion, ItemData, Question, Selected, Tool } from './types';
 
 /** 从路径解析路由：/ -> 首页；/:examId -> 工作台；/:examId/:itemId -> 指定试题组 */
 function parsePath(pathname: string): { exam?: string; item?: string } {
@@ -31,12 +32,26 @@ export default function App() {
   const [activeExam, setActiveExam] = useState<string>();
   const [selected, setSelected] = useState<Selected>();
   const [data, setData] = useState<ItemData>();
-  const [tool, setTool] = useState<Tool>('select');
   const [changed, setChanged] = useState(false);
+  /** 共享批注工具与画笔设置：材料区/题目区共用一套 */
+  const [tool, setTool] = useState<Tool>('select');
+  const [penColor, setPenColor] = useState('#2e6fdf');
+  const [penWidth, setPenWidth] = useState(3);
   /** 选句填空：逐空预览状态（题号 -> 是否预览），由材料区空槽与题目区共享 */
   const [gapRevealed, setGapRevealed] = useState<Record<string, boolean>>({});
 
-  const { annotations, reset, commit, save, undo, redo, canUndo, canRedo } = useAnnotations(selected);
+  const { annotations, reset, commit, undo, redo, canUndo, canRedo } = useAnnotations(selected);
+
+  /** 按区域拆分批注：旧数据无 target 字段，默认视为材料区 */
+  const splitAnnotations = (target: AnnotationTarget) =>
+    annotations.filter((a) => (a.target ?? 'material') === target);
+
+  /** 提交某个区域的批注列表：保留另一区域的批注后提交（记录历史并自动保存） */
+  const commitFor = useCallback(
+    (target: AnnotationTarget, next: Annotation[]) =>
+      commit([...annotations.filter((a) => (a.target ?? 'material') !== target), ...next]),
+    [annotations, commit],
+  );
 
   /** 当前试题组中内嵌短文的题（选句填空/完形填空，若有） */
   const passageQuestion = data?.questions.find(isPassageQuestion);
@@ -194,20 +209,27 @@ export default function App() {
                 blankHints={blankHints}
                 blankColorKeys={blankColorKeys}
                 title={data.meta.name || selected.item}
+                annotations={splitAnnotations('material')}
+                onCommit={(next) => commitFor('material', next)}
                 tool={tool}
                 onToolChange={setTool}
-                annotations={annotations}
-                onCommit={commit}
-                onClear={() => save([])}
-                canUndo={canUndo}
-                canRedo={canRedo}
-                onUndo={undo}
-                onRedo={redo}
+                penColor={penColor}
+                onPenColorChange={setPenColor}
+                penWidth={penWidth}
+                onPenWidthChange={setPenWidth}
               />
             )}
             <QuestionsPane
               questions={data.questions}
               meta={data.meta}
+              annotations={splitAnnotations('questions')}
+              onCommit={(next) => commitFor('questions', next)}
+              tool={tool}
+              onToolChange={setTool}
+              penColor={penColor}
+              onPenColorChange={setPenColor}
+              penWidth={penWidth}
+              onPenWidthChange={setPenWidth}
               blank={{
                 revealed: gapRevealed,
                 onToggleBlank: (label) => setGapRevealed((s) => ({ ...s, [label]: !s[label] })),
@@ -222,6 +244,21 @@ export default function App() {
           </div>
         ) : (
           <EmptyState />
+        )}
+        {data && selected && (
+          <AnnotationToolbar
+            tool={tool}
+            onToolChange={setTool}
+            penColor={penColor}
+            onPenColorChange={setPenColor}
+            penWidth={penWidth}
+            onPenWidthChange={setPenWidth}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            onUndo={undo}
+            onRedo={redo}
+            onClear={() => commit([])}
+          />
         )}
       </main>
       {toast}
