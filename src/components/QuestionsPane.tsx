@@ -103,20 +103,24 @@ function QuestionOptions({
   revealed,
   picked,
   onPick,
+  locked,
 }: {
   question: { options: QuestionOption[]; answer: string };
   revealed: boolean;
   picked?: string;
   onPick: (key: string) => void;
+  /** 画笔/橡皮擦模式下锁定选项，不可点击 */
+  locked?: boolean;
 }) {
   return (
     <div className="options">
       {question.options.map((o) => {
         const classes = ['option'];
+        if (locked) classes.push('locked');
         if (revealed && o.key === question.answer) classes.push('correct');
         if (picked && picked === o.key && o.key !== question.answer) classes.push('wrong');
         return (
-          <div className={classes.join(' ')} key={o.key} onClick={() => onPick(o.key)}>
+          <div className={classes.join(' ')} key={o.key} onClick={locked ? undefined : () => onPick(o.key)}>
             <b>{o.key}</b>
             {o.text}
           </div>
@@ -221,6 +225,7 @@ function ClozeCard({
   onToggleBlank,
   onSetBlank,
   onSetAll,
+  locked,
 }: {
   question: ClozeQuestion;
   index: number;
@@ -229,6 +234,8 @@ function ClozeCard({
   onToggleBlank: (label: string) => void;
   onSetBlank: (label: string, value: boolean) => void;
   onSetAll: (value: boolean) => void;
+  /** 画笔/橡皮擦模式下锁定选项，不可点击 */
+  locked?: boolean;
 }) {
   /** 每空的课堂点击选择（题号 -> 选中的选项 key），仅用于标红错误选项 */
   const [picked, setPicked] = useState<Record<string, string>>({});
@@ -246,6 +253,7 @@ function ClozeCard({
 
   /** 点击选项：选错标红并预览答案解析，选对视为预览答案 */
   const pickBlank = (label: string, optionKey: string) => {
+    if (locked) return;
     setPicked((s) => ({ ...s, [label]: optionKey }));
     onSetBlank(label, true);
   };
@@ -290,6 +298,7 @@ function ClozeCard({
                   revealed={isRevealed}
                   picked={picked[blank.label]}
                   onPick={(optionKey) => pickBlank(blank.label, optionKey)}
+                  locked={locked}
                 />
               </div>
               {isRevealed && (
@@ -429,6 +438,7 @@ function QuestionCard({
   picked,
   onToggle,
   onPick,
+  locked,
 }: {
   question: Exclude<Question, GapFillQuestion | ClozeQuestion | GrammarFillQuestion | WritingQuestion>;
   index: number;
@@ -436,6 +446,8 @@ function QuestionCard({
   picked?: string;
   onToggle: () => void;
   onPick: (key: string) => void;
+  /** 画笔/橡皮擦模式下锁定选项，不可点击 */
+  locked?: boolean;
 }) {
   const isDialogue = question.type === 'dialogue-choice';
   return (
@@ -454,7 +466,7 @@ function QuestionCard({
       </div>
       {isDialogue && <DialogueView dialogue={question.dialogue} options={question.options} revealed={revealed} answer={question.options.find((o) => o.key === question.answer)?.text ?? question.answer} />}
       {isDialogue && question.dialogue.some((line) => line.text.includes('{{blank}}')) === false && <p className="dialogue-fallback">请在对话数据中使用 {'{{blank}}'} 标记待补全位置。</p>}
-      <QuestionOptions question={question} revealed={revealed} picked={picked} onPick={onPick} />
+      <QuestionOptions question={question} revealed={revealed} picked={picked} onPick={onPick} locked={locked} />
       {revealed && (
         <div className="explanation">
           <strong>答案：{question.answer}</strong>
@@ -468,6 +480,9 @@ function QuestionCard({
 export function QuestionsPane({ questions, meta, annotations, onCommit, tool, onToolChange, penColor, onPenColorChange, penWidth, onPenWidthChange, blank }: QuestionsPaneProps) {
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
   const [picked, setPicked] = useState<Record<string, string>>({});
+
+  /** 画笔/橡皮擦模式下锁定可点击选项 */
+  const optionsLocked = tool !== 'select';
 
   /** 切换试题组时收起全部答案 */
   useEffect(() => {
@@ -569,6 +584,7 @@ export function QuestionsPane({ questions, meta, annotations, onCommit, tool, on
                 onToggleBlank={(label) => blank?.onToggleBlank(label)}
                 onSetBlank={onSetBlank}
                 onSetAll={(value) => blank?.onSetAll(value)}
+                locked={optionsLocked}
               />
             );
           }
@@ -604,6 +620,7 @@ export function QuestionsPane({ questions, meta, annotations, onCommit, tool, on
               picked={picked[key]}
               onToggle={() => toggleOne(key)}
               onPick={(optionKey) => pickOne(key, optionKey)}
+              locked={optionsLocked}
             />
           );
         })}

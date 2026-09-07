@@ -220,6 +220,8 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}
 .option{display:flex;gap:8px;padding:9px;border-radius:7px;font-size:17px;line-height:1.4}
 .option b{color:#7e8a99}
 .option.correct{background:#eaf7ef;color:#267b49}
+.option.locked{cursor:inherit}
+.option.locked:hover{background:transparent}
 .option.correct b{color:#267b49}
 .option{cursor:pointer;transition:background .15s}
 .option:hover{background:#f1f4f8}
