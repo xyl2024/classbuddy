@@ -176,25 +176,33 @@ export function AnnotationSurface({
     strokePath(ctx, points);
   }, [draw, penColor, penWidth]);
 
-  /** 画布尺寸跟随面板尺寸 */
+  /** 画布尺寸跟随面板尺寸（隐藏画布后再测量，避免画布自身撑大 scrollHeight 的反馈） */
+  const resizeCanvas = useCallback(() => {
+    const canvas = canvasRef.current;
+    const host = hostRef.current;
+    if (!canvas || !host) return;
+    // 画布物理像素乘以 dpr，避免高分屏/缩放下笔迹模糊
+    const dpr = window.devicePixelRatio || 1;
+    canvas.style.display = 'none';
+    const scrollHeight = host.scrollHeight;
+    const clientWidth = host.clientWidth;
+    canvas.style.display = '';
+    canvas.width = clientWidth * dpr;
+    canvas.height = scrollHeight * dpr;
+    canvas.style.width = `${clientWidth}px`;
+    canvas.style.height = `${scrollHeight}px`;
+    draw();
+  }, [draw]);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     const host = hostRef.current;
     if (!canvas || !host) return;
-    const resize = () => {
-      // 画布物理像素乘以 dpr，避免高分屏/缩放下笔迹模糊
-      const dpr = window.devicePixelRatio || 1;
-      canvas.width = host.clientWidth * dpr;
-      canvas.height = host.scrollHeight * dpr;
-      canvas.style.width = `${host.clientWidth}px`;
-      canvas.style.height = `${host.scrollHeight}px`;
-      draw();
-    };
-    resize();
-    const observer = new ResizeObserver(resize);
+    resizeCanvas();
+    const observer = new ResizeObserver(resizeCanvas);
     observer.observe(host);
     return () => observer.disconnect();
-  }, [draw]);
+  }, [resizeCanvas]);
 
   useEffect(() => {
     draw();
@@ -238,13 +246,13 @@ export function AnnotationSurface({
     const content = contentRef.current;
     if (!content) return;
     const rerender = () => {
-      draw();
+      resizeCanvas();
       applyHighlights();
     };
     const observer = new MutationObserver(rerender);
     observer.observe(content, { subtree: true, childList: true, characterData: true });
     return () => observer.disconnect();
-  }, [draw, applyHighlights]);
+  }, [resizeCanvas, applyHighlights]);
 
   /** 检测指针是否落在某个文本批注（高亮/划线）的渲染区域内，返回其 id */
   const hitTextAnnotation = (p: [number, number], list: Annotation[]): string | null => {
