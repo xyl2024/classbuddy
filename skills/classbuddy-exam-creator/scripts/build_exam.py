@@ -77,6 +77,15 @@ QTYPE_TO_SECTION = {
     "grammar-fill": "grammar-fill",
     "writing": "writing",
 }
+# 各题型默认分值：每小题 X 分（书面表达整题 25 分，只有 1 题故按每小题计）
+DEFAULT_SCORES = {
+    "situational-communication": 3,
+    "reading-comprehension": 3,
+    "gap-fill": 3,
+    "cloze": 3,
+    "grammar-fill": 2,
+    "writing": 25,
+}
 DEFAULT_INSTRUCTIONS = {
     "situational-communication": "从下列各题所给的 A、B、C 和 D 项中选出最佳选项，补全对话。",
     "reading-comprehension": "阅读下列短文，掌握其大意，然后从每题所给的 A、B、C 和 D 项中选出最佳选项。",
@@ -195,7 +204,7 @@ def fill_meta_defaults(meta: dict, questions: list) -> dict:
     if not meta.get("instruction"):
         meta["instruction"] = DEFAULT_INSTRUCTIONS.get(st, "")
     if "scorePerQuestion" not in meta:
-        meta["scorePerQuestion"] = 1
+        meta["scorePerQuestion"] = DEFAULT_SCORES.get(st, 1)
     if "totalScore" not in meta:
         meta["totalScore"] = round(n * meta["scorePerQuestion"], 2)
     desc = meta.get("description")
@@ -215,7 +224,7 @@ def refresh_passage_meta(meta: dict, q: dict) -> dict:
     if not meta.get("sectionType"):
         meta["sectionType"] = QTYPE_TO_SECTION[q["type"]]
     n = len(q.get("blanks", []))
-    spq = meta.get("scorePerQuestion", 1)
+    spq = meta.get("scorePerQuestion", DEFAULT_SCORES.get(meta.get("sectionType"), 1))
     meta["totalScore"] = round(n * spq, 2)
     meta["description"] = f"共{n}小题"
     return meta
@@ -329,6 +338,8 @@ def cmd_add_item(args):
         meta["description"] = args.description
     if args.score_per_question is not None:
         meta["scorePerQuestion"] = args.score_per_question
+    elif args.type:
+        meta["scorePerQuestion"] = DEFAULT_SCORES.get(args.type, 1)
     if args.total_score is not None:
         meta["totalScore"] = args.total_score
 

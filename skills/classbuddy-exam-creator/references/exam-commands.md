@@ -88,7 +88,7 @@ $B push data/midterm-exam [--url http://localhost:3000] [--force]
 
 - **顺序**：先 `init`，再按 7 题组顺序 `add-item`；短文题型必须先 `set-passage` 再逐空加。
 - **`{{blank:N}}`**：N 用全卷连续题号，必须与 `--label` 一一对应；`add-blank-*` 会校验标记存在、不重复，并按短文中出现顺序排列空位。
-- **自动补全**：省略的 `sectionType`/`instruction`/`description`/分值按题型自动补；首个题目/短文加入时定型。需要自定义分值用 `add-item --score-per-question/--total-score` 或 `update-item`。
+- **自动补全**：省略的 `sectionType`/`instruction`/`description`/分值按题型自动补（默认每小题分值见 `DEFAULT_SCORES`：情景交际/阅读/五选五/完形 3 分、语法填空 2 分、书面表达整题 25 分）；首个题目/短文加入时定型。需要自定义分值用 `add-item --score-per-question/--total-score` 或 `update-item`。
 - **答错即拒**：`--answer` 不在选项 key、label 不在短文标记、台词缺 `{{blank}}`、重写短文未加 `--replace` 等，命令会报错退出且不破坏已有数据。
 - **批注安全**：`remove-item` 遇到已有批注会拒绝（加 `--yes` 覆盖）；其余命令不动 `annotations.json`。
 - **材料偏移**：修改阅读理解 material 正文会使已有文本批注失效，需提示教师或用 `put-item --reset-annotations` 重置。

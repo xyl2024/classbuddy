@@ -33,17 +33,17 @@ description: 为 classbuddy（英语试题讲解工具）生成一套完整的�
 
 一套完整试卷按以下固定顺序生成 7 个试题组。全卷题号连续（这是真实试卷的编号惯例，五选五/完形/语法填空的空位标记 `{{blank:N}}` 中的 N 必须用这些全卷题号）：
 
-| 试题组 | 题型 | `sectionType` | 题量 | 全卷题号 | 主要子命令 |
-| --- | --- | --- | --- | --- | --- |
-| `item-1` | 情景交际 | `situational-communication` | 5 题 | 1–5 | `add-dialogue` ×5（待填台词写 `{{blank}}`） |
-| `item-2` | 阅读理解（A 篇） | `reading-comprehension` | 5 题 | 6–10 | `set-material` + `add-choice` ×5 |
-| `item-3` | 阅读理解（B 篇） | `reading-comprehension` | 5 题 | 11–15 | 同上 |
-| `item-4` | 五选五（选句填空） | `gap-fill` | 5 空 | 16–20 | `set-passage` → `gap-set-options`（5–7 备选句）→ `add-blank-gap` ×5 |
-| `item-5` | 完形填空 | `cloze` | 15 空 | 21–35 | `set-passage` → `add-blank-cloze` ×15（每空独立 4 选项） |
-| `item-6` | 语法填空 | `grammar-fill` | 10 空 | 36–45 | `set-passage` → `add-blank-grammar` ×10 |
-| `item-7` | 书面表达 | `writing` | 1 题 | 46 | `add-writing`（含范文与点评） |
+| 试题组 | 题型 | `sectionType` | 题量 | 每小题分 | 满分 | 全卷题号 | 主要子命令 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `item-1` | 情景交际 | `situational-communication` | 5 题 | 3 分 | 15 分 | 1–5 | `add-dialogue` ×5（待填台词写 `{{blank}}`） |
+| `item-2` | 阅读理解（A 篇） | `reading-comprehension` | 5 题 | 3 分 | 15 分 | 6–10 | `set-material` + `add-choice` ×5 |
+| `item-3` | 阅读理解（B 篇） | `reading-comprehension` | 5 题 | 3 分 | 15 分 | 11–15 | 同上 |
+| `item-4` | 五选五（选句填空） | `gap-fill` | 5 空 | 3 分 | 15 分 | 16–20 | `set-passage` → `gap-set-options`（5–7 备选句）→ `add-blank-gap` ×5 |
+| `item-5` | 完形填空 | `cloze` | 15 空 | 3 分 | 45 分 | 21–35 | `set-passage` → `add-blank-cloze` ×15（每空独立 4 选项） |
+| `item-6` | 语法填空 | `grammar-fill` | 10 空 | 2 分 | 20 分 | 36–45 | `set-passage` → `add-blank-grammar` ×10 |
+| `item-7` | 书面表达 | `writing` | 1 题 | — | 25 分 | 46 | `add-writing`（含范文与点评） |
 
-用户指定了不同的题量/题型组合时按用户的来，但保持"题号全卷连续"和各题型的字段规范。
+全卷满分 150 分。以上分值已内建为 `build_exam.py` 的题型默认分值（`DEFAULT_SCORES`），省略 `--score-per-question` 时自动套用。用户指定了不同的题量/题型/分值组合时按用户的来，但保持“题号全卷连续”和各题型的字段规范。
 
 ### 试题组 name 约束（schema）
 
