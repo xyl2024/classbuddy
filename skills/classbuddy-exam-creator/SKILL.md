@@ -9,14 +9,44 @@ description: 为 classbuddy（英语试题讲解工具）生成一套完整的�
 
 **核心原则：不要手写 `questions.json` / `meta.json` 等 JSON 文件。**用 `scripts/build_exam.py` 的子命令逐题型搭建试卷：每种题型有专属命令（如 `add-blank-cloze` 加完形空位、`set-passage` 写短文），命令即时写盘、即时校验，避免字段名、JSON 转义、`{{blank:N}}` 对应等常见错误。命令用法见 `references/exam-commands.md`。
 
+## 使用前：服务地址与鉴权检测（必做）
+
+开始生成、推送任何试卷之前，先确认 classbuddy 服务的**地址**与**鉴权**是否配置可用：
+
+```bash
+API="python3 <skill目录>/scripts/classbuddy_api.py"
+$API check
+```
+
+`check` 会依次探测连通性（`/api/health`）与鉴权（`/api/auth/check`），最后打印一行 `STATUS=...`。含义与处理如下：
+
+| STATUS | 含义 | 处理 |
+| --- | --- | --- |
+| `ok` | 服务可达且凭据正确（或服务端未启用鉴权） | 直接继续 |
+| `unreachable` | 服务不可达（未启动或地址不对） | 先确认服务已启动（`npm run dev`），再向用户索取正确的**应用地址** |
+| `need-auth-config` | 服务可达但要求鉴权，尚未配置账号密码 | 向用户索取**账号与密码** |
+| `auth-invalid` | 已配置凭据但用户名或密码错误 | 向用户重新索取账号密码 |
+
+一旦需要用户提供地址 / 账号密码，先问清（不要臆测），再一次性写入配置并重跑 `check`：
+
+```bash
+$API configure --url http://服务器:3000 --user 用户名 --password 密码
+$API check      # 直到 STATUS=ok 才继续
+```
+
+> **凭据持久化**：`configure` 会把地址与账号密码写入 `~/.classbuddy/exam-creator.json`（权限 600），脚本每次调用自动加载，等价于设好了环境变量 `CLASSBUDDY_URL` 与 `CLASSBUDDY_USER`/`CLASSBUDDY_PASS`（也可直接设 `CLASSBUDDY_AUTH=user:pass`，优先级最高的是命令行 `--url`/`--user`/`--password`/`--auth`）。此后各命令与 `build_exam.py push` 都无需再重复传地址/账号。
+>
+> **为什么必要**：服务端若启用了鉴权（启动带 `--auth user:pass` 或设 `CLASSBUDDY_AUTH`），**写接口与健康探针 `/api/health` 都要携带 Basic 凭据**；缺凭据或凭据错误时推送会被服务端 401 拒绝。用 `check` 提前把地址/账号验证到位，避免生成到一半才发现推不上去。
+
 ## 总体流程
 
-1. **分步引导询问**：按"引导式询问（四步）"一节逐步问清：试卷名 → 主题/难度/范围/资料（引导用户提供资料路径供阅读）→ 是否用默认出题模板 → 应用地址。
-2. **确认输出位置与考试集 id**：默认生成到 `data/<exam-id>/`（`data/` 已被 gitignore，适合本地测试）；如用户指定了目标目录，以用户为准。
-3. **搭建议**：把一整套 `build_exam.py` 命令写成一个 bash 脚本一次性执行（出错即停）；短文、材料正文、范文等长文本先写入临时文件（如 `/tmp/article-a.md`）再用 `@路径` 传参，短文本直接内联。
-4. **生成与校验**：按 `references/exam-commands.md` 的典型流程逐题组搭建（内容规范对照 `references/question-schemas.md`），完成后运行 `python3 <skill目录>/scripts/build_exam.py validate <考试集目录>`；有 errors 时用对应子命令修正（`remove-*` 删除后重加），直到 0 errors。
-5. **推送到服务**：先跑 `health` 探针确认 classbuddy 服务可达（默认 `http://localhost:3000`，不可达则提示用户启动服务并停止，不要继续推送），然后用 `build_exam.py push <考试集目录>`（等价于 `classbuddy_api.py push-exam`，服务端同名时加 `--force`）整体上传，页面会实时感知。
-6. **交付**：告诉用户考试集目录位置与推送结果，并提示可在首页查看。
+1. **先做地址/鉴权检测**：运行上节「使用前检测」的 `check`，必要时 `configure` 让用户提供地址与账号密码，直到 `STATUS=ok` 再往下。
+2. **分步引导询问**：按"引导式询问（四步）"一节逐步问清：试卷名 → 主题/难度/范围/资料（引导用户提供资料路径供阅读）→ 是否用默认出题模板 → （地址已在检测阶段确认，不再重复问）。
+3. **确认输出位置与考试集 id**：默认生成到 `data/<exam-id>/`（`data/` 已被 gitignore，适合本地测试）；如用户指定了目标目录，以用户为准。
+4. **搭建议**：把一整套 `build_exam.py` 命令写成一个 bash 脚本一次性执行（出错即停）；短文、材料正文、范文等长文本先写入临时文件（如 `/tmp/article-a.md`）再用 `@路径` 传参，短文本直接内联。
+5. **生成与校验**：按 `references/exam-commands.md` 的典型流程逐题组搭建（内容规范对照 `references/question-schemas.md`），完成后运行 `python3 <skill目录>/scripts/build_exam.py validate <考试集目录>`；有 errors 时用对应子命令修正（`remove-*` 删除后重加），直到 0 errors。
+6. **推送到服务**：用 `build_exam.py push <考试集目录>`（等价于 `classbuddy_api.py push-exam`，服务端同名时加 `--force`）整体上传，页面会实时感知。若 `push` 被 401 拒绝，说明地址/账号有误，回到「使用前检测」重新 `configure`。
+7. **交付**：告诉用户考试集目录位置与推送结果，并提示可在首页查看。
 
 在开始生成前，先阅读 `references/exam-commands.md` 与 `references/question-schemas.md`，不要凭记忆编写。
 
@@ -46,8 +76,8 @@ description: 为 classbuddy（英语试题讲解工具）生成一套完整的�
 
 ### 第 4 步：应用地址
 
-- 询问 classbuddy 服务的应用地址（用于最后推送试卷），默认 `http://localhost:3000`。
-- 该地址将用于 `build_exam.py push` / `classbuddy_api.py` 的 `--url` 参数（或 `CLASSBUDDY_URL` 环境变量）。
+- 应用地址（与账号密码）已在「使用前检测」阶段通过 `check`/`configure` 确定并持久化（默认 `http://localhost:3000`），本步无需再问。
+- 仅当用户后续主动提供了新的目标地址、或检测阶段因服务未启动等原因未能确认真实地址时，才在此补问并用 `configure` 更新。
 
 四步问齐后开始生成。
 
@@ -113,20 +143,21 @@ python3 <skill目录>/scripts/build_exam.py validate <考试集目录>  # 结构
 
 服务端（`server.ts`）提供试卷增删查改 HTTP 接口（详见 `docs/api.md`）；所有接口调用都通过 Python 脚本完成，不要手写 curl 或直接改服务端数据目录。
 
-- **连通性检查**：推送前先跑 `python3 <skill目录>/scripts/classbuddy_api.py health [--url URL]`，用 `/api/health` 探针确认服务可达；失败时提示用户先启动服务（`npm run dev`），不要盲目推送。
-
-- **一键上传**：`python3 <skill目录>/scripts/build_exam.py push <考试集目录> [--url URL] [--force]`（先自动校验再整体上传）。
-- 其余接口（查/改/删考试集与试题组）用 `scripts/classbuddy_api.py`，服务地址用 `--url` 或环境变量 `CLASSBUDDY_URL` 指定（默认 `http://localhost:3000`）。
+- **先检测再推送**：地址与鉴权在「使用前检测」已由 `check` 校验、`configure` 持久化到 `~/.classbuddy/exam-creator.json`，因此**直接调用即可自动带上地址与凭据**，无需每命令重复传 `--url`/账号。地址/凭据也可用命令行 `--url`/`--user`/`--password`/`--auth` 或环境变量 `CLASSBUDDY_URL`/`CLASSBUDDY_AUTH`（或 `CLASSBUDDY_USER`+`CLASSBUDDY_PASS`）覆盖。
+- **一键上传**：`python3 <skill目录>/scripts/build_exam.py push <考试集目录> [--url URL] [--force]`（先自动校验再整体上传；服务端启用鉴权时凭据自动带上）。
 
 ```bash
-API="python3 <skill目录>/scripts/classbuddy_api.py --url http://localhost:3000"
+API="python3 <skill目录>/scripts/classbuddy_api.py"
 
-$API list-exams                       # 列出全部考试集
-$API get-exam <examId> [--full]       # 查看考试集（--full 含全部试题组内容）
+$API check                              # 连通 + 鉴权检测（使用前先跑，见上文）
+$API configure --url URL --user U --password P   # 持久化地址/账号密码到配置文件
+$API health                             # 探活（服务端启用鉴权时需已配置凭据）
+$API list-exams                         # 列出全部考试集
+$API get-exam <examId> [--full]         # 查看考试集（--full 含全部试题组内容）
 $API create-exam <examId> --name "中文名" [--force]
 $API update-exam <examId> --name "新名"
 $API delete-exam <examId> --yes
-$API get-item <examId> <itemId> [--out <本地目录>]          # 拉取到本地四个文件（含 annotations.json）
+$API get-item <examId> <itemId> [--out <本地目录>]   # 拉取到本地四个文件（含 annotations.json）
 $API put-item <examId> <itemId> --dir <本地试题组目录> [--reset-annotations]
 $API patch-item <examId> <itemId> [--meta F] [--material F] [--questions F] [--reset-annotations]
 $API delete-item <examId> <itemId> --yes

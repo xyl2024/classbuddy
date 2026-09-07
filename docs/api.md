@@ -48,3 +48,11 @@ Python 客户端：`skills/classbuddy-exam-creator/scripts/classbuddy_api.py`（
 ## 事件
 
 `GET /api/events`（SSE）：数据目录变化时推送 `{ "type": "files-changed" }`，前端提示教师手动刷新。
+
+## 鉴权与健康检查
+
+- 服务端通过启动参数 `--auth user:pass` 或环境变量 `CLASSBUDDY_AUTH` 启用 Basic Auth；未配置则不鉴权。
+- 启用鉴权后：**写操作**（POST / PUT / PATCH / DELETE）以及健康探针 `GET /api/health`、凭据自检 `GET /api/auth/check` 均需携带 `Authorization: Basic <base64("user:pass")>`，否则返回 401。
+- 其余读取接口与静态资源始终开放（不校验鉴权）。
+- 凭据错误统一返回 `401` + `{ "error": "..." }`，不返回 `WWW-Authenticate` 头以避免浏览器弹原生登录框。
+- 客户端脚本自动带上凭据：命令行 `--auth`/`--user`/`--password` > 环境变量 `CLASSBUDDY_AUTH`（或 `CLASSBUDDY_USER`+`CLASSBUDDY_PASS`） > 配置文件 `~/.classbuddy/exam-creator.json`。`/api/health` 用于探活与连通检测。

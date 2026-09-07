@@ -110,7 +110,7 @@ CONTEXT.md             # 领域术语
 - 外部文件变化通过服务端事件通知，页面提示教师手动重新加载。
 - 首页支持试卷数据的上传与下载：上传 zip 压缩包导入为考试集（同名需确认覆盖），下载将考试集导出为 zip。
 - 单个试题组文件异常不应导致整个服务启动失败，应在导航中标记异常。
-- API 鉴权：启动参数 `--auth user:pass`（或环境变量 `CLASSBUDDY_AUTH`）启用后，写操作（POST/PUT/PATCH/DELETE）需携带 HTTP Basic Auth，读取接口（GET）与静态资源始终开放；未配置则不鉴权。
+- API 鉴权：启动参数 `--auth user:pass`（或环境变量 `CLASSBUDDY_AUTH`）启用后，写操作（POST/PUT/PATCH/DELETE）以及健康探针 `/api/health`、凭据自检 `/api/auth/check` 需携带 HTTP Basic Auth，其余读取接口（GET）与静态资源始终开放；未配置则不鉴权。
 
 ## 修改规范
 

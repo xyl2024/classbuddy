@@ -18,8 +18,8 @@ services:
       # 试卷与批注数据持久化到命名卷
       - classbuddy-data:/data
     healthcheck:
-      # 利用 Node 全局 fetch 探测健康接口（容器内固定 3000）
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      # 探测健康接口（容器内固定 3000）；若配置了 CLASSBUDDY_AUTH 则携带 Basic 凭据
+      test: ["CMD", "node", "-e", "const a=process.env.CLASSBUDDY_AUTH;const h=a&&a.includes(':')?{headers:{Authorization:'Basic '+Buffer.from(a).toString('base64')}}:{};fetch('http://127.0.0.1:3000/api/health',h).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s
       timeout: 5s
       retries: 3

@@ -334,14 +334,13 @@ def cmd_push(args):
     api = Path(__file__).with_name("classbuddy_api.py")
     if not api.is_file():
         fail(f"找不到 {api}")
-    cmd = [sys.executable, str(api)]
-    if args.url:
-        cmd += ["--url", args.url]
-    cmd += ["push-exam", args.exam_dir]
+    cmd = [sys.executable, str(api), "push-exam", args.exam_dir]
     if args.id:
         cmd += ["--id", args.id]
     if args.force:
         cmd += ["--force"]
+    if args.url:
+        cmd += ["--url", args.url]
     return subprocess.run(cmd).returncode
 
 

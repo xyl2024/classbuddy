@@ -55,8 +55,11 @@ const annotationCount = async (dir: string) => {
 const materialOffsetWarning = (count: number) =>
   count > 0 ? `material 已更新，但该试题组仍有 ${count} 条批注按原文偏移量保存，可能已错位；请在页面上检查，或用 resetAnnotations 重置批注` : undefined;
 
-/** 健康探针：供脚本/部署探测服务是否存活 */
-app.get('/api/health', (_req, res) => res.json({ ok: true }));
+/** 健康探针：供脚本/部署探测服务是否存活；服务端启用鉴权后需携带正确的 Basic 凭据 */
+app.get('/api/health', (req, res) => {
+  if (isAuthorized(req)) res.json({ ok: true });
+  else res.status(401).json({ error: '需要鉴权：请在请求头中携带 Authorization: Basic <base64("user:pass")>' });
+});
 
 app.get('/api/examinations', async (_req, res) => {
   const exams: any[] = [];
