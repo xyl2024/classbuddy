@@ -137,6 +137,12 @@ export function AnnotationSurface({
   const contentRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingPoints = useRef<[number, number][]>([]);
+  /** 当前按住的活动触点（pointerId → 视口坐标），用于检测双指滚动手势 */
+  const activePointers = useRef<Map<number, { x: number; y: number }>>(new Map());
+  /** 是否处于多点滚动手势：期间不绘制、不擦除，仅驱动滚动 */
+  const multiScroll = useRef(false);
+  /** 多点滚动用的纵向质心基准，用于计算位移增量 */
+  const scrollCentroidY = useRef<number | null>(null);
   const [selPopup, setSelPopup] = useState<SelectionPopup | null>(null);
   /** 选中文本后浮动工具栏中当前选中的高亮/划线颜色（下标，与画笔色系一致） */
   const [selColor, setSelColor] = useState(0);
@@ -314,6 +320,16 @@ export function AnnotationSurface({
     applyHighlights(erasePreview.current);
   };
 
+  /** 把 pointer 事件转为视口坐标 */
+  const pointerAt = (e: ReactPointerEvent<HTMLElement>) => ({ x: e.clientX, y: e.clientY });
+
+  /** 计算当前所有活动触点的纵向质心 */
+  const centroidY = () => {
+    let sum = 0, n = 0;
+    activePointers.current.forEach((p) => { sum += p.y; n++; });
+    return n ? sum / n : 0;
+  };
+
   const onPointerDown = (e: ReactPointerEvent<HTMLElement>) => {
     if (tool === 'select') return;
     // 画笔/橡皮擦模式下禁用默认文本选择，避免拖拽时误选中文字
@@ -321,6 +337,28 @@ export function AnnotationSurface({
     window.getSelection()?.removeAllRanges();
     setSelPopup(null);
     e.currentTarget.setPointerCapture(e.pointerId);
+    activePointers.current.set(e.pointerId, pointerAt(e));
+
+    // 已是多点滚动手势：只登记触点，不绘制
+    if (multiScroll.current) {
+      scrollCentroidY.current = null;
+      return;
+    }
+
+    // 第二根（及以上）手指落下：丢弃第一指尚未提交的半成品，切到双指滚动
+    if (activePointers.current.size >= 2) {
+      multiScroll.current = true;
+      scrollCentroidY.current = null;
+      drawingPoints.current = [];
+      erasing.current = false;
+      erasePreview.current = null;
+      erasedIds.current = new Set();
+      draw();
+      applyHighlights();
+      return;
+    }
+
+    // 单指：开始绘制或擦除
     const p = toCanvasPoint(e);
     if (tool === 'freehand') {
       drawingPoints.current = [p];
@@ -333,6 +371,20 @@ export function AnnotationSurface({
   };
 
   const onPointerMove = (e: ReactPointerEvent<HTMLElement>) => {
+    activePointers.current.set(e.pointerId, pointerAt(e));
+
+    // 多点滚动：按触点质心的纵向位移驱动容器滚动（内容跟随手指，scrollTop 减小）
+    if (multiScroll.current && activePointers.current.size >= 2) {
+      const host = hostRef.current;
+      const cy = centroidY();
+      if (host && scrollCentroidY.current != null) {
+        host.scrollTop -= cy - scrollCentroidY.current;
+      }
+      scrollCentroidY.current = cy;
+      return;
+    }
+    if (multiScroll.current) return;
+
     if (tool === 'eraser' && erasing.current) {
       eraseAt(toCanvasPoint(e));
       return;
@@ -342,7 +394,21 @@ export function AnnotationSurface({
     drawPreview();
   };
 
-  const onPointerUp = () => {
+  const onPointerUp = (e: ReactPointerEvent<HTMLElement>) => {
+    activePointers.current.delete(e.pointerId);
+    // 多点滚动：直到所有手指抬起才结束；期间不落笔、不提交擦除
+    if (multiScroll.current) {
+      if (activePointers.current.size === 0) {
+        multiScroll.current = false;
+        scrollCentroidY.current = null;
+      } else {
+        // 手指减少但未抬完：重建质心基准，避免下次位移跳变
+        scrollCentroidY.current = null;
+      }
+      return;
+    }
+
+    // 单指结束：提交笔迹或擦除结果
     if (tool === 'eraser') {
       erasing.current = false;
       const removed = erasePreview.current;
@@ -359,11 +425,19 @@ export function AnnotationSurface({
   /** 指针被浏览器取消（触屏上系统手势/滚动抢占、双指缩放、主动释放捕获等）：
    * 复位在绘制中的状态，避免残留 drawingPoints / erasing 标志；画布交由下一帧 draw 重绘。 */
   const onPointerCancel = (e: ReactPointerEvent<HTMLElement>) => {
+    activePointers.current.delete(e.pointerId);
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
     } catch {
       /* 捕获可能已丢失，忽略 */
     }
+    if (activePointers.current.size >= 2) {
+      // 仍有两指：保持滚动态，重建质心基准
+      scrollCentroidY.current = null;
+      return;
+    }
+    multiScroll.current = false;
+    scrollCentroidY.current = null;
     drawingPoints.current = [];
     erasing.current = false;
     erasePreview.current = null;
