@@ -34,10 +34,10 @@ $B set-material data/midterm-exam --item 2 --material @/tmp/article-a.md
 $B add-choice data/midterm-exam --item 2 --question "Why is …?" \
   --opt "A=…" --opt "B=…" --opt "C=…" --opt "D=…" --answer B --explanation "定位句…。"
 
-# 4. 五选五（5 空 5–7 备选句）：短文 → 共用备选句 → 逐空
+# 4. 五选五（5 空 5 备选句；非默认模板可 5–7 个）：短文 → 共用备选句 → 逐空
 $B add-item data/midterm-exam --name "五选五" --type gap-fill
 $B set-passage data/midterm-exam --item 4 --type gap-fill --passage @/tmp/passage.txt
-$B gap-set-options data/midterm-exam --item 4 --opt "A=…" --opt "B=…" --opt "E=干扰项"
+$B gap-set-options data/midterm-exam --item 4 --opt "A=…" --opt "B=…" --opt "C=…" --opt "D=…" --opt "E=…"
 $B add-blank-gap data/midterm-exam --item 4 --label 16 --answer B --explanation "承上启下。"
 
 # 5. 完形填空（15 空）：短文 → 逐空（每空独立 4 选项）
@@ -78,7 +78,7 @@ $B push data/midterm-exam [--url http://localhost:3000] [--force]
 | `add-dialogue` | 情景交际：`--line "说话人\|台词"×n --opt K=T×4 --answer K` |
 | `add-writing` | 书面表达：`--prompt P [--greeting G] [--closing C] [--point P]×n [--sample S] [--comment C]` |
 | `set-passage --type gap-fill\|cloze\|grammar-fill --passage T [--replace]` | 写短文（每试题组仅一道短文题） |
-| `gap-set-options` | 五选五共用备选句（`--opt` 5–7 个，可含干扰项） |
+| `gap-set-options` | 五选五共用备选句（`--opt` 5–7 个，可含干扰项；默认模板下必须 5 个） |
 | `add-blank-gap --label N --answer K [--explanation E]` | 五选五加空 |
 | `add-blank-cloze --label N --opt K=T×4 --answer K [--explanation E]` | 完形加空 |
 | `add-blank-grammar --label N --answer 单词 [--hint H] [--explanation E]` | 语法填空加空 |

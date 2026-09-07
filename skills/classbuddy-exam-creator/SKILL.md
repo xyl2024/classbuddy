@@ -38,7 +38,7 @@ description: 为 classbuddy（英语试题讲解工具）生成一套完整的�
 | `item-1` | 情景交际 | `situational-communication` | 5 题 | 3 分 | 15 分 | 1–5 | `add-dialogue` ×5（待填台词写 `{{blank}}`） |
 | `item-2` | 阅读理解（A 篇） | `reading-comprehension` | 5 题 | 3 分 | 15 分 | 6–10 | `set-material` + `add-choice` ×5 |
 | `item-3` | 阅读理解（B 篇） | `reading-comprehension` | 5 题 | 3 分 | 15 分 | 11–15 | 同上 |
-| `item-4` | 五选五（选句填空） | `gap-fill` | 5 空 | 3 分 | 15 分 | 16–20 | `set-passage` → `gap-set-options`（5–7 备选句）→ `add-blank-gap` ×5 |
+| `item-4` | 五选五（选句填空） | `gap-fill` | 5 空 | 3 分 | 15 分 | 16–20 | `set-passage` → `gap-set-options`（默认模板下必须 5 个备选句）→ `add-blank-gap` ×5 |
 | `item-5` | 完形填空 | `cloze` | 15 空 | 3 分 | 45 分 | 21–35 | `set-passage` → `add-blank-cloze` ×15（每空独立 4 选项） |
 | `item-6` | 语法填空 | `grammar-fill` | 10 空 | 2 分 | 20 分 | 36–45 | `set-passage` → `add-blank-grammar` ×10 |
 | `item-7` | 书面表达 | `writing` | 1 题 | — | 25 分 | 46 | `add-writing`（含范文与点评） |
@@ -72,7 +72,7 @@ item-N/
 
 - 题目材料与选项用英文，语言难度与用户指定的学段匹配；`explanation`、`instruction`、`name`、`description` 用中文。
 - 解析要讲"为什么"：指出定位句或考点（如从句类型、固定搭配、时态依据），不要只重复答案。
-- 阅读题的答案应能在原文找到依据；五选五的干扰项要与正确项有真实的辨析度；完形填空四个选项词性一致、语法上均可填入，靠上下文语义区分。
+- 阅读题的答案应能在原文找到依据；五选五在默认模板下 5 空 5 选项一一对应（非默认模板允许 5–7 选项，可含干扰项，干扰项要有真实的辨析度）；完形填空四个选项词性一致、语法上均可填入，靠上下文语义区分。
 - `{{blank:N}}` 标记与 `--label` 必须一一对应，不允许多余或缺失。
 - 不要引入学生答题、判分、用户系统等概念；本工具是教师讲解用途。
 

@@ -26,6 +26,23 @@ NUM_RE = re.compile(r"^\d+$")
 errors: list[str] = []
 warnings: list[str] = []
 
+# 默认模板：7 个试题组按标准顺序与题型组合（情景交际/阅读×2/五选五/完形/语法/写作）
+DEFAULT_TEMPLATE_SECTIONS = [
+    "situational-communication", "reading-comprehension", "reading-comprehension",
+    "gap-fill", "cloze", "grammar-fill", "writing",
+]
+DEFAULT_TEMPLATE = False
+
+
+def detect_default_template(item_dirs: list[Path]) -> bool:
+    if len(item_dirs) != len(DEFAULT_TEMPLATE_SECTIONS):
+        return False
+    for d, st in zip(item_dirs, DEFAULT_TEMPLATE_SECTIONS):
+        meta = load_json(d / "meta.json", d.name) if (d / "meta.json").is_file() else None
+        if not isinstance(meta, dict) or meta.get("sectionType") != st:
+            return False
+    return True
+
 
 def err(item: str, msg: str) -> None:
     errors.append(f"[{item}] {msg}")
@@ -144,6 +161,8 @@ def check_question(q, item: str, index: str) -> None:
         if markers is None:
             return
         keys = check_options(q.get("options"), item, qid, None, 2)
+        if DEFAULT_TEMPLATE and keys and len(keys) != 5:
+            err(item, f"{qid}: 默认模板下五选五备选句必须是 5 个，得到 {len(keys)} 个")
         blanks = q.get("blanks")
         if not isinstance(blanks, list) or not blanks:
             err(item, f"{qid}: blanks 必须是非空数组")
@@ -233,6 +252,8 @@ def main() -> int:
     item_dirs = sorted(p for p in exam_dir.iterdir() if p.is_dir() and p.name.startswith("item-"))
     if not item_dirs:
         err("<exam>", "目录下没有任何 item-* 试题组目录")
+    global DEFAULT_TEMPLATE
+    DEFAULT_TEMPLATE = detect_default_template(item_dirs)
 
     for item_dir in item_dirs:
         item = item_dir.name

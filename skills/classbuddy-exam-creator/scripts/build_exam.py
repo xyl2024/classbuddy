@@ -29,7 +29,7 @@ Usage:
 题目级（五选五/完形/语法填空：短文一条命令，逐空一条命令）:
   set-passage <examDir> --item item-N --type gap-fill|cloze|grammar-fill
         --passage TEXT [--replace]                        写入短文（含 {{blank:题号}} 标记）
-  gap-set-options <examDir> --item item-N --opt K=T...   设置五选五共用备选句
+  gap-set-options <examDir> --item item-N --opt K=T...   设置五选五共用备选句（默认模板下必须 5 个）
   add-blank-gap <examDir> --item item-N --label N --answer K [--explanation E]
   add-blank-cloze <examDir> --item item-N --label N --opt K=T...（通常 4 项）
         --answer K [--explanation E]
@@ -529,6 +529,8 @@ def cmd_gap_set_options(args):
     d = item_dir(Path(args.exam_dir), args.item)
     q = get_gap_q(d, "gap-fill")
     opts = parse_opts(args.opt, "--opt")
+    if not 5 <= len(opts) <= 7:
+        print(f"WARN  {d.name}: 备选句 {len(opts)} 个（通常 5–7 个；默认模板下必须 5 个）")
     meta = load_meta(d)
     q["options"] = opts
     save_item(d, meta, questions_with(d, q))
@@ -740,7 +742,7 @@ def main() -> int:
     p = sub.add_parser("gap-set-options", help="设置五选五共用备选句")
     p.add_argument("exam_dir")
     p.add_argument("--item", required=True)
-    p.add_argument("--opt", required=True, action="append", help="备选句，格式 A=句子（5–7 个，可含干扰项）")
+    p.add_argument("--opt", required=True, action="append", help="备选句，格式 A=句子（5–7 个，可含干扰项；默认模板下必须 5 个）")
     p.set_defaults(func=cmd_gap_set_options)
 
     p = sub.add_parser("add-blank-gap", help="五选五：添加一个空位")
