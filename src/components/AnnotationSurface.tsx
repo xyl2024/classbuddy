@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react';
-import { Eraser, Highlighter, MousePointer2, PenLine, Redo2, Trash2, Underline, Undo2 } from 'lucide-react';
-import type { Annotation, AnnotationTarget, Tool } from '../types';
+import { ChevronLeft, ChevronRight, Eraser, Highlighter, House, MousePointer2, PenLine, Redo2, Trash2, Underline, Undo2 } from 'lucide-react';
+import type { Annotation, AnnotationTarget, Exam, Tool } from '../types';
+import { ItemDropdown } from './ItemDropdown';
 
 const ERASER_HIT_RADIUS = 14;
 
@@ -479,7 +480,7 @@ export function AnnotationSurface({
             <button
               key={c.base}
               className={`sel-color${selColor === i ? ' selected' : ''}`}
-              title="颜色"
+             
               onClick={() => setSelColor(i)}
             >
               <i style={{ background: c.base }} />
@@ -528,6 +529,11 @@ export interface AnnotationToolbarProps {
   onRedo: () => void;
   /** 清空全部批注（材料区 + 题目区） */
   onClear: () => void;
+  /** 当前考试集与试题组：用于底部工具栏的试题组切换与返回首页 */
+  exam?: Exam;
+  selected?: { exam: string; item: string };
+  onSelectItem: (itemId: string) => void;
+  onHome: () => void;
 }
 
 /** 共享批注工具栏：材料区与题目区共用一套，置于工作台底部 */
@@ -543,25 +549,39 @@ export function AnnotationToolbar({
   onUndo,
   onRedo,
   onClear,
+  exam,
+  selected,
+  onSelectItem,
+  onHome,
 }: AnnotationToolbarProps) {
+  const items = exam?.items ?? [];
+  const currentIndex = selected ? items.findIndex((i) => i.id === selected.item) : -1;
   return (
     <div className="pane-foot workbench-foot">
-      <button className={tool === 'select' ? 'selected' : ''} title="选择" onClick={() => onToolChange('select')}><MousePointer2 size={14} /></button>
-      <button className={tool === 'freehand' ? 'selected' : ''} title="画笔" onClick={() => onToolChange('freehand')}><PenLine size={14} /></button>
+      <button className="foot-home" onClick={onHome}><House size={14} /></button>
+      <span className="pen-sep" />
+      <span className="item-switch">
+        <button disabled={currentIndex <= 0} onClick={() => currentIndex > 0 && onSelectItem(items[currentIndex - 1].id)}><ChevronLeft size={14} /></button>
+        <ItemDropdown items={items} value={currentIndex >= 0 ? selected?.item : undefined} onSelect={onSelectItem} />
+        <button disabled={currentIndex < 0 || currentIndex >= items.length - 1} onClick={() => currentIndex < items.length - 1 && onSelectItem(items[currentIndex + 1].id)}><ChevronRight size={14} /></button>
+      </span>
+      <span className="pen-sep" />
+      <button className={tool === 'select' ? 'selected' : ''} onClick={() => onToolChange('select')}><MousePointer2 size={14} /></button>
+      <button className={tool === 'freehand' ? 'selected' : ''} onClick={() => onToolChange('freehand')}><PenLine size={14} /></button>
       {tool === 'freehand' && (
         <span className="pen-options">
           {PEN_COLORS.map((c) => (
             <button
               key={c}
               className={`pen-color${penColor === c ? ' selected' : ''}`}
-              title="画笔颜色"
+             
               onClick={() => onPenColorChange(c)}
             >
               <i style={{ background: c }} />
             </button>
           ))}
           <span className="pen-sep" />
-          <span className="pen-width-ctl" title="画笔粗细">
+          <span className="pen-width-ctl">
             <input
               type="range"
               min={1}
@@ -572,11 +592,11 @@ export function AnnotationToolbar({
           </span>
         </span>
       )}
-      <button className={tool === 'eraser' ? 'selected' : ''} title="橡皮擦" onClick={() => onToolChange('eraser')}><Eraser size={14} /></button>
+      <button className={tool === 'eraser' ? 'selected' : ''} onClick={() => onToolChange('eraser')}><Eraser size={14} /></button>
       <div className="foot-actions">
-        <button title="撤销" onClick={onUndo} disabled={!canUndo}><Undo2 size={14} /></button>
-        <button title="重做" onClick={onRedo} disabled={!canRedo}><Redo2 size={14} /></button>
-        <button className="danger" title="清空全部批注" onClick={onClear}><Trash2 size={14} /></button>
+        <button onClick={onUndo} disabled={!canUndo}><Undo2 size={14} /></button>
+        <button onClick={onRedo} disabled={!canRedo}><Redo2 size={14} /></button>
+        <button className="danger" onClick={onClear}><Trash2 size={14} /></button>
       </div>
     </div>
   );

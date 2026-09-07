@@ -123,6 +123,33 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}
 .foot-actions .danger:not(:disabled):hover{background:#fdeeed;color:#c04437}
 /* 工作台底部共享工具栏：跨两个面板唯一一份 */
 .workbench-foot{margin:0 18px 18px;border:1px solid #e8edf3;border-radius:12px;border-top:1px solid #e8edf3;padding:8px 14px;flex-shrink:0}
+/* 底部工具栏：首页按钮与试题组切换 */
+.foot-home{color:#6a7686}
+.foot-home:hover{background:#edf4ff;color:#3176d8}
+.item-switch{display:inline-flex;align-items:center;gap:2px;margin:0 4px}
+.item-switch button{padding:8px;border-radius:7px;color:#6a7686;display:inline-flex}
+.item-switch button:hover:not(:disabled){background:#edf4ff;color:#3176d8}
+.item-switch button:disabled{opacity:.35;cursor:default}
+.item-switch select{font:inherit;font-size:12px;color:#233247;border:1px solid #dfe5ec;border-radius:7px;padding:6px 8px;background:#fff;max-width:220px;cursor:pointer}
+.item-switch select:focus{outline:none;border-color:#8db4e8}
+.item-switch .warning{background:#ffb84d;color:#fff;border-radius:50%;width:17px;height:17px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:4px}
+/* 自绘试题组下拉框 */
+.item-dropdown{position:relative}
+.item-dropdown-btn{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:#233247;border:1px solid #dfe5ec;border-radius:7px;padding:6px 10px;background:#fff;max-width:100%;width:100%;transition:border-color .15s,background .15s}
+.item-dropdown-btn:hover,.item-dropdown-btn.open{border-color:#8db4e8;background:#f7fafe}
+.item-dropdown-label{flex:1;min-width:0;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item-dropdown-warn{color:#d99427;flex-shrink:0}
+.item-dropdown-warn-wrap{display:inline-flex;flex-shrink:0}
+.item-dropdown-caret{color:#8c97a4;flex-shrink:0;transition:transform .15s}
+.item-dropdown-caret.up{transform:rotate(180deg)}
+.item-dropdown-menu{position:absolute;bottom:calc(100% + 6px);left:0;width:100%;background:#fff;border:1px solid #e8edf3;border-radius:10px;padding:4px;box-shadow:0 8px 24px #18263826;z-index:40;animation:dropdown-in .12s ease-out}
+@keyframes dropdown-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.item-dropdown-item{display:flex;width:100%;align-items:center;gap:6px;font-size:12.5px;color:#233247;text-align:left;padding:8px 10px;border-radius:7px}
+.item-dropdown-item:hover{background:#edf4ff;color:#3176d8}
+.item-dropdown-item.active{background:#eef5ff;color:#3075d7;font-weight:600}
+.item-dropdown-check{flex-shrink:0;visibility:hidden}
+.item-dropdown-item.active .item-dropdown-check{visibility:visible}
+.item-dropdown-item .item-dropdown-label{flex:1;min-width:0}
 /* 画笔颜色与粗细内联设置 */
 .pen-options{display:inline-flex;align-items:center;gap:3px;padding-left:8px;margin-left:4px;border-left:1px solid #edf0f4}
 .pen-options button{width:24px;height:30px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px}

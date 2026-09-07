@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { fetchExaminations, fetchItem } from './api';
 import { useAnnotations } from './hooks/useAnnotations';
-import { Sidebar } from './components/Sidebar';
 import { HomePage } from './components/HomePage';
 import { MaterialPane } from './components/MaterialPane';
 import { QuestionsPane } from './components/QuestionsPane';
@@ -192,12 +191,6 @@ export default function App() {
 
   return (
     <div className="app">
-      <Sidebar
-        exam={exams.find((e) => e.id === activeExam)}
-        selected={selected}
-        onSelect={(s) => navigate(s.exam, s.item)}
-        onHome={goHome}
-      />
       <main className="main">
         {data && selected ? (
           <div className={`panes ${data.meta.sectionType === 'situational-communication' || data.meta.sectionType === 'writing' ? 'single-pane' : ''}`}>
@@ -258,6 +251,10 @@ export default function App() {
             onUndo={undo}
             onRedo={redo}
             onClear={() => commit([])}
+            exam={exams.find((e) => e.id === activeExam)}
+            selected={selected}
+            onSelectItem={(itemId) => navigate(selected.exam, itemId)}
+            onHome={goHome}
           />
         )}
       </main>
