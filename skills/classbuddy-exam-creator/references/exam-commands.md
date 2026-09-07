@@ -77,12 +77,14 @@ $B push data/midterm-exam [--url http://localhost:3000] [--force]
 | `add-choice` | 阅读理解单选：`--question Q --opt K=T×4 --answer K [--explanation E]` |
 | `add-dialogue` | 情景交际：`--line "说话人\|台词"×n --opt K=T×4 --answer K` |
 | `add-writing` | 书面表达：`--prompt P [--greeting G] [--closing C] [--point P]×n [--sample S] [--comment C]` |
-| `set-passage --type gap-fill\|cloze\|grammar-fill --passage T [--replace]` | 写短文（每试题组仅一道短文题） |
+| `update-question --id qID [--question Q] [--opt K=T...] [--answer K] [--explanation E \| --no-explanation]` | 改一道题的字段（写作另支持 `--prompt/--greeting/--closing/--point/--sample/--comment/--no-*`） |
+| `update-blank --label N [--answer A] [--opt K=T...]（仅完形） [--explanation E \| --no-explanation] [--hint H \| --no-hint]` | 改一个空位的字段 |
+| `set-passage --type gap-fill\|cloze\|grammar-fill --passage T [--replace]` | 写短文（每试题组仅一道短文题）；`--replace` 重写时保留新短文中仍出现的空位，其余删除并提示需补的空 |
 | `gap-set-options` | 五选五共用备选句（`--opt` 5–7 个，可含干扰项；默认模板下必须 5 个） |
-| `add-blank-gap --label N --answer K [--explanation E]` | 五选五加空 |
-| `add-blank-cloze --label N --opt K=T×4 --answer K [--explanation E]` | 完形加空 |
-| `add-blank-grammar --label N --answer 单词 [--hint H] [--explanation E]` | 语法填空加空 |
-| `remove-item [--yes]` / `remove-question --id qID` / `remove-blank --label N` | 删除试题组 / 题 / 空位 |
+| `add-blank-gap --label N --answer K [--explanation E]` | 五选五加空（全卷题号已被其他试题组占用时报错） |
+| `add-blank-cloze --label N --opt K=T×4 --answer K [--explanation E]` | 完形加空（同上） |
+| `add-blank-grammar --label N --answer 单词 [--hint H] [--explanation E]` | 语法填空加空（同上） |
+| `remove-item [--yes]` / `remove-question --id qID [--renumber]` / `remove-blank --label N` | 删除试题组 / 题 / 空位；`--renumber` 把剩余题 id 重排为 q1..qn；`remove-blank` 同步移除 passage 中对应 `{{{{blank:N}}}}` 标记 |
 
 ## 规则与注意事项
 
@@ -90,5 +92,7 @@ $B push data/midterm-exam [--url http://localhost:3000] [--force]
 - **`{{blank:N}}`**：N 用全卷连续题号，必须与 `--label` 一一对应；`add-blank-*` 会校验标记存在、不重复，并按短文中出现顺序排列空位。
 - **自动补全**：省略的 `sectionType`/`instruction`/`description`/分值按题型自动补（默认每小题分值见 `DEFAULT_SCORES`：情景交际/阅读/五选五/完形 3 分、语法填空 2 分、书面表达整题 25 分）；首个题目/短文加入时定型。需要自定义分值用 `add-item --score-per-question/--total-score` 或 `update-item`。
 - **答错即拒**：`--answer` 不在选项 key、label 不在短文标记、台词缺 `{{blank}}`、重写短文未加 `--replace` 等，命令会报错退出且不破坏已有数据。
+- **全卷题号唯一**：`add-blank-*` 会拒绝被其他试题组占用的题号；`validate` 也做全卷唯一性校验（重复报 error）。
 - **批注安全**：`remove-item` 遇到已有批注会拒绝（加 `--yes` 覆盖）；其余命令不动 `annotations.json`。
-- **材料偏移**：修改阅读理解 material 正文会使已有文本批注失效，需提示教师或用 `put-item --reset-annotations` 重置。
+- **材料偏移**：修改阅读理解 material 正文会使已有文本批注错位。`patch-item --material` 时服务端检测到批注非空会返回警告（客户端脚本打印 `WARN`）；确认错位后用 `--reset-annotations` 重置批注，或提示教师在页面上检查。`get-item --out` 会把 annotations.json 一并拉下，便于本地判断。
+- **改题优先用 update-*：改某题 answer/explanation 等单字段用 `update-question`/`update-blank`，不要整文件拉回-改-推回；换题时先 `remove-question --renumber` 再 `add-*`，避免 id 冲突。

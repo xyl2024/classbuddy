@@ -300,6 +300,7 @@ def main() -> int:
 
     # 编号连续性：对含空位标记的题型汇总题号
     all_labels: list[str] = []
+    label_owners: dict[str, list[str]] = {}
     for item_dir in item_dirs:
         qfile = item_dir / "questions.json"
         if not qfile.is_file():
@@ -307,10 +308,16 @@ def main() -> int:
         data = load_json(qfile, item_dir.name) or []
         for q in data if isinstance(data, list) else []:
             if isinstance(q, dict) and isinstance(q.get("passage"), str):
-                all_labels.extend(BLANK_RE.findall(q["passage"]))
+                for m in BLANK_RE.findall(q["passage"]):
+                    all_labels.append(m)
+                    label_owners.setdefault(m, []).append(item_dir.name)
     nums = [int(x) for x in all_labels if x.isdigit()]
     if nums and nums != sorted(nums):
         warn("<exam>", f"空位题号未按升序排列: {nums}")
+    # 全卷题号唯一性：同一题号出现在多个试题组 → error（讲解视图题号会重复）
+    for m, owners in sorted(label_owners.items(), key=lambda kv: kv[1]):
+        if len(owners) > 1:
+            err("<exam>", f"空位题号 {m} 同时被 {', '.join(owners)} 使用（全卷题号必须唯一）")
 
     if as_json:
         print(json.dumps({"errors": errors, "warnings": warnings}, ensure_ascii=False, indent=2))

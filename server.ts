@@ -23,6 +23,15 @@ const notifyChange = () => { for (const client of clients) client.write(`data: $
 const safe = (value: string) => value.split('/').every((part) => part && part !== '..' && part !== '.');
 const readJson = async (file: string, fallback: unknown) => { try { return JSON.parse(await fs.readFile(file, 'utf8')); } catch { return fallback; } };
 
+/** 试题组当前批注数量（异常结构按 0 处理，仅用于覆盖 material 前的警告提示） */
+const annotationCount = async (dir: string) => {
+  const ann = await readJson(path.join(dir, 'annotations.json'), null as unknown);
+  return Array.isArray((ann as any)?.annotations) ? (ann as any).annotations.length : 0;
+};
+/** material 变化会使文本偏移量类批注错位；返回给客户端的警告文案 */
+const materialOffsetWarning = (count: number) =>
+  count > 0 ? `material 已更新，但该试题组仍有 ${count} 条批注按原文偏移量保存，可能已错位；请在页面上检查，或用 resetAnnotations 重置批注` : undefined;
+
 /** 健康探针：供脚本/部署探测服务是否存活 */
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
@@ -132,6 +141,7 @@ const itemFieldErrors = (body: any) => {
   if (body.questions !== undefined && !Array.isArray(body.questions)) return 'questions 必须是题目数组';
   if (body.meta?.name !== undefined && !ALLOWED_ITEM_NAMES.includes(body.meta.name))
     return `meta.name 必须是 ${ALLOWED_ITEM_NAMES.join('、')} 之一（不能带篇目、副标题等附加文字）`;
+  if (body.resetAnnotations !== undefined && typeof body.resetAnnotations !== 'boolean') return 'resetAnnotations 必须是布尔值';
   return '';
 };
 
@@ -148,12 +158,14 @@ app.put('/api/items/:exam/:item', async (req, res) => {
   try {
     await fs.mkdir(dir, { recursive: true });
     await fs.writeFile(path.join(dir, 'meta.json'), JSON.stringify(body.meta ?? {}, null, 2));
+    const materialChanged = body.material !== undefined && body.material !== (await fs.readFile(path.join(dir, 'material.md'), 'utf8').catch(() => ''));
     await fs.writeFile(path.join(dir, 'material.md'), body.material ?? '');
     await fs.writeFile(path.join(dir, 'questions.json'), JSON.stringify(body.questions ?? [], null, 2));
     if (body.resetAnnotations || !(await exists(path.join(dir, 'annotations.json')))) await fs.writeFile(path.join(dir, 'annotations.json'), JSON.stringify(EMPTY_ANNOTATIONS, null, 2));
+    const warning = !body.resetAnnotations && materialChanged ? await materialOffsetWarning(await annotationCount(dir)) : undefined;
+    notifyChange();
+    res.json({ ok: true, item, ...(warning ? { warning } : {}) });
   } catch { return res.status(500).json({ error: '试题组保存失败' }); }
-  notifyChange();
-  res.json({ ok: true, item });
 });
 
 /** 局部更新试题组：body 中仅写入提供的 meta / material / questions 字段 */
@@ -166,13 +178,23 @@ app.patch('/api/items/:exam/:item', async (req, res) => {
   if (body.meta === undefined && body.material === undefined && body.questions === undefined) return res.status(400).json({ error: '请求体中未提供任何要更新的字段（meta / material / questions）' });
   const dir = path.join(dataDir, exam, item);
   if (!(await exists(dir))) return res.status(404).json({ error: '试题组不存在' });
+  let warning: string | undefined;
   try {
     if (body.meta !== undefined) await fs.writeFile(path.join(dir, 'meta.json'), JSON.stringify(body.meta, null, 2));
-    if (body.material !== undefined) await fs.writeFile(path.join(dir, 'material.md'), body.material);
+    if (body.material !== undefined) {
+      const materialChanged = body.material !== (await fs.readFile(path.join(dir, 'material.md'), 'utf8').catch(() => ''));
+      const count = await annotationCount(dir);
+      if (body.resetAnnotations === true) {
+        await fs.writeFile(path.join(dir, 'annotations.json'), JSON.stringify(EMPTY_ANNOTATIONS, null, 2));
+      } else if (materialChanged) {
+        warning = materialOffsetWarning(count);
+      }
+      await fs.writeFile(path.join(dir, 'material.md'), body.material);
+    }
     if (body.questions !== undefined) await fs.writeFile(path.join(dir, 'questions.json'), JSON.stringify(body.questions, null, 2));
   } catch { return res.status(500).json({ error: '试题组保存失败' }); }
   notifyChange();
-  res.json({ ok: true });
+  res.json({ ok: true, ...(warning ? { warning } : {}) });
 });
 
 /** 删除试题组 */

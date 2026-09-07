@@ -15,11 +15,11 @@ Usage:
   update-exam <examId> [--name N] [--description D]
                                                   更新考试集元数据
   delete-exam <examId> [--yes]                    删除考试集（--yes 跳过确认）
-  get-item <examId> <itemId> [--out DIR]          查看试题组；--out 把 meta/material/questions 写入本地目录
+  get-item <examId> <itemId> [--out DIR]          查看试题组；--out 把 meta/material/questions/annotations 写入本地目录
   put-item <examId> <itemId> --dir DIR [--reset-annotations]
                                                   用本地试题组目录整体替换服务端试题组
-  patch-item <examId> <itemId> [--meta F] [--material F] [--questions F]
-                                                  局部更新试题组的部分文件
+  patch-item <examId> <itemId> [--meta F] [--material F] [--questions F] [--reset-annotations]
+                                                  局部更新试题组的部分文件；改 material 时若已有批注会收到错位警告
   delete-item <examId> <itemId> [--yes]           删除试题组
   push-exam <examDir> [--id ID] [--force]         校验本地考试集目录后整体上传（含全部 item-*）
 
@@ -163,7 +163,14 @@ def cmd_get_item(args):
         (out / "meta.json").write_text(json.dumps(data.get("meta", {}), ensure_ascii=False, indent=2), encoding="utf-8")
         (out / "material.md").write_text(data.get("material", ""), encoding="utf-8")
         (out / "questions.json").write_text(json.dumps(data.get("questions", []), ensure_ascii=False, indent=2), encoding="utf-8")
-        print(f"已写入 {out}/（meta.json、material.md、questions.json）")
+        (out / "annotations.json").write_text(json.dumps(data.get("annotations", EMPTY_ANNOTATIONS), ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"已写入 {out}/（meta.json、material.md、questions.json、annotations.json）")
+        anns = data.get("annotations", {}).get("annotations", [])
+        if anns:
+            print(f"提示：该试题组有 {len(anns)} 条批注（已写入 annotations.json）；"
+                  f"material.md 的文本偏移量与批注对应，改动材料会使批注错位，push 回去时可用 --reset-annotations 重置")
+        if any(isinstance(q, dict) and q.get("type") in ("gap-fill", "cloze", "grammar-fill") for q in data.get("questions", [])):
+            print("提示：该题型短文在 questions.json 首题的 passage 字段，不在 material.md；material.md 只是说明文字")
     else:
         print(json.dumps(data, ensure_ascii=False, indent=2))
     return 0
@@ -182,9 +189,11 @@ def cmd_put_item(args):
     payload = item_payload_from_dir(Path(args.dir))
     if args.reset_annotations:
         payload["resetAnnotations"] = True
-    request(args, "PUT", f"/api/items/{args.exam}/{args.item}", payload)
+    _, resp = request(args, "PUT", f"/api/items/{args.exam}/{args.item}", payload)
     note = "，并已重置批注" if args.reset_annotations else "（保留已有批注）"
     print(f"已整体替换试题组 {args.exam}/{args.item}{note}")
+    if resp.get("warning"):
+        print(f"WARN  {resp['warning']}")
     return 0
 
 
@@ -198,8 +207,13 @@ def cmd_patch_item(args):
         payload["questions"] = read_json_file(Path(args.questions), "题目数据")
     if not payload:
         fail("未提供要更新的文件：--meta / --material / --questions")
-    request(args, "PATCH", f"/api/items/{args.exam}/{args.item}", payload)
-    print(f"已局部更新试题组 {args.exam}/{args.item}：{'、'.join(payload)}")
+    if args.reset_annotations:
+        payload["resetAnnotations"] = True
+    _, resp = request(args, "PATCH", f"/api/items/{args.exam}/{args.item}", payload)
+    note = "，并已重置批注" if args.reset_annotations else "（保留已有批注）"
+    print(f"已局部更新试题组 {args.exam}/{args.item}：{'、'.join(payload)}{note}")
+    if resp.get("warning"):
+        print(f"WARN  {resp['warning']}")
     return 0
 
 
@@ -255,9 +269,11 @@ def cmd_push_exam(args):
 
     for item_dir in item_dirs:
         payload = item_payload_from_dir(item_dir)
-        request(args, "PUT", f"/api/items/{exam_id}/{item_dir.name}", payload)
+        _, resp = request(args, "PUT", f"/api/items/{exam_id}/{item_dir.name}", payload)
         questions = len(payload["questions"])
         print(f"  ✓ {item_dir.name} 「{payload['meta'].get('name', item_dir.name)}」 {questions} 题")
+        if resp.get("warning"):
+            print(f"  ! {resp['warning']}")
     print(f"已上传考试集“{exam_id}”（{len(item_dirs)} 个试题组）到 {base_url(args)}")
     return 0
 
@@ -310,8 +326,9 @@ def main():
     p.add_argument("exam")
     p.add_argument("item")
     p.add_argument("--meta", help="meta.json 文件路径")
-    p.add_argument("--material", help="material.md 文件路径")
+    p.add_argument("--material", help="material.md 文件路径（改动会使文本偏移量批注错位，服务端会返回警告）")
     p.add_argument("--questions", help="questions.json 文件路径")
+    p.add_argument("--reset-annotations", action="store_true", help="同时把批注重置为空（配合 --material 使用）")
     p.set_defaults(func=cmd_patch_item)
 
     p = sub.add_parser("delete-item")

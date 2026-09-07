@@ -105,9 +105,9 @@ python3 <skill目录>/scripts/build_exam.py list <考试集目录>      # 概览
 python3 <skill目录>/scripts/build_exam.py validate <考试集目录>  # 结构校验，PASS (0 errors) 才可交付
 ```
 
-`validate` 输出 errors 时用对应子命令修正：删题用 `remove-question`、删空位用 `remove-blank`、删试题组用 `remove-item`（有批注会拒绝），修正后重加/重跑。warnings 逐条判断（如 writing 缺 sample/comment、题号不升序、阅读材料过短）。修复时优先对照 `references/exam-commands.md`（命令用法）与 `references/question-schemas.md`（内容规范），而不是猜测字段名。
+`validate` 输出 errors 时用对应子命令修正：改字段用 `update-question`/`update-blank`、删题用 `remove-question`（可加 `--renumber` 重排剩余题 id）、删空位用 `remove-blank`（会同步移除 passage 中对应标记）、删试题组用 `remove-item`（有批注会拒绝），修正后重跑。warnings 逐条判断（如 writing 缺 sample/comment、题号不升序、阅读材料过短）。修复时优先对照 `references/exam-commands.md`（命令用法）与 `references/question-schemas.md`（内容规范），而不是猜测字段名。
 
-**注意**：修改阅读理解 material 正文会使已有文本批注的偏移量失效，需提示教师批注会失效或重置批注（`put-item --reset-annotations`）。
+**注意**：修改阅读理解 material 正文会使已有文本批注的偏移量错位。`patch-item --material` 时服务端会在批注非空且材料变化时返回警告（客户端会打印 `WARN`），确认后用 `--reset-annotations` 重置批注，或提示教师在页面上检查；`get-item --out` 会把 annotations.json 一并拉下，便于本地判断。
 
 ## 通过接口写入运行中的服务
 
@@ -126,15 +126,16 @@ $API get-exam <examId> [--full]       # 查看考试集（--full 含全部试题
 $API create-exam <examId> --name "中文名" [--force]
 $API update-exam <examId> --name "新名"
 $API delete-exam <examId> --yes
-$API get-item <examId> <itemId> [--out <本地目录>]          # 拉取到本地三个文件
+$API get-item <examId> <itemId> [--out <本地目录>]          # 拉取到本地四个文件（含 annotations.json）
 $API put-item <examId> <itemId> --dir <本地试题组目录> [--reset-annotations]
-$API patch-item <examId> <itemId> [--meta F] [--material F] [--questions F]
+$API patch-item <examId> <itemId> [--meta F] [--material F] [--questions F] [--reset-annotations]
 $API delete-item <examId> <itemId> --yes
 ```
 
 约定：
 
 - **先读后写**：修改已有试卷前先用 `get-exam --full` / `get-item --out` 拉取现状，不要盲写。
-- `put-item` 整体替换会重写三个文件但**保留已有批注**；材料文本变了批注偏移量会失效，此时应加 `--reset-annotations`。
-- 局部改动（如只换解析）用 `patch-item`，避免覆盖其他文件。
+- `put-item` 整体替换会重写三个文件但**保留已有批注**；材料文本变了批注偏移量会错位，服务端会返回警告，此时应加 `--reset-annotations`。
+- 局部改动（如只换单题答案/解析）优先用 `build_exam.py update-question`/`update-blank`；跨文件局部改动用 `patch-item`，避免覆盖其他文件。
+- 五选五/完形/语法填空的短文在 questions.json 首题的 passage 字段，不在 material.md；两者分工见 `get-item --out` 的输出提示。
 - 删除操作不可恢复，务必与用户确认后再执行。

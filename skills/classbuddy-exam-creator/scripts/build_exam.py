@@ -37,8 +37,17 @@ Usage:
         [--explanation E]
 
 修正:
-  remove-question <examDir> --item item-N --id qID        删除一道题
-  remove-blank <examDir> --item item-N --label N          删除一个空位（连同其选项）
+  update-question <examDir> --item item-N --id qID        修改一道题的单个或多个字段
+        [--question Q] [--opt K=T...] [--answer K]
+        [--explanation E | --no-explanation]              （阅读/情景/书面表达通用）
+        [--prompt P] [--sample S] [--comment C] [--no-sample] [--no-comment]
+  update-blank <examDir> --item item-N --label N          修改一个空位
+        [--answer A | K] [--opt K=T...]（仅完形） [--explanation E | --no-explanation]
+        [--hint H | --no-hint]
+  remove-question <examDir> --item item-N --id qID [--renumber]
+        删除一道题（--renumber 把剩余题 id 重排为 q1..qn，避免新题 id 冲突）
+  remove-blank <examDir> --item item-N --label N          删除一个空位（连同其选项，
+        并同步移除 passage 中对应的 {{{{blank:N}}}} 标记）
 
 长文本约定: 所有文本参数都支持 `@路径`（读文件）或 `-`（读 stdin），如
   --passage @/tmp/passage.txt ；短文本直接内联即可。
@@ -197,7 +206,7 @@ def fill_meta_defaults(meta: dict, questions: list) -> dict:
     passage_q = passage_question(questions)
     # 短文题型（五选五/完形/语法填空）按空位数计小题数，其余按题目数
     n = len(passage_q.get("blanks", [])) if passage_q else len(questions)
-    qtype = next((q.get("type") for q in questions if isinstance(q, dict)), None)
+    qtype = next((q.get("type", "choice") for q in questions if isinstance(q, dict)), None)
     if qtype and not meta.get("sectionType"):
         meta["sectionType"] = QTYPE_TO_SECTION.get(qtype)
     st = meta.get("sectionType")
@@ -250,6 +259,28 @@ def check_label_in_passage(q: dict, label: str, d: Path) -> None:
 def check_answer(answer: str, keys: list[str], ctx: str) -> None:
     if answer not in keys:
         fail(f"{ctx}: answer “{answer}” 必须是选项 key 之一 {keys}")
+
+
+def collect_exam_labels(exam_dir: Path, exclude_item: str = "") -> dict[str, list[str]]:
+    """全卷各试题组已使用的空位题号 -> 占用它的 item 名列表（排除指定 item）。"""
+    used: dict[str, list[str]] = {}
+    if not exam_dir.is_dir():
+        return used
+    for pdir in sorted(p for p in exam_dir.iterdir() if p.is_dir() and p.name.startswith("item-")):
+        if pdir.name == exclude_item:
+            continue
+        for q in load_questions(pdir):
+            if isinstance(q, dict) and isinstance(q.get("passage"), str):
+                for m in BLANK_RE.findall(q["passage"]):
+                    used.setdefault(m, []).append(pdir.name)
+    return used
+
+
+def check_label_unique_across_items(exam_dir: Path, d: Path, label: str) -> None:
+    """全卷题号唯一性：label 已被其他试题组占用时直接报错。"""
+    owners = collect_exam_labels(exam_dir, exclude_item=d.name).get(label)
+    if owners:
+        fail(f"题号 {label} 已被 {', '.join(owners)} 占用（全卷题号必须唯一）；请换一个题号，或先修正那边的数据")
 
 
 # ---------- 考试集级命令 ----------
@@ -396,7 +427,7 @@ def cmd_update_item(args):
 def append_question(d: Path, q: dict) -> None:
     meta = load_meta(d)
     questions = load_questions(d)
-    existing_types = {x.get("type") for x in questions if isinstance(x, dict)}
+    existing_types = {x.get("type", "choice") for x in questions if isinstance(x, dict)}
     qtype = q["type"]
     passage_q = passage_question(questions)
     if qtype in PASSAGE_TYPES and (existing_types or passage_q is not None and passage_q is not q):
@@ -404,7 +435,10 @@ def append_question(d: Path, q: dict) -> None:
     if existing_types and existing_types != {qtype}:
         fail(f"{d.name}: 试题组内已有题型 {sorted(existing_types)}，不能再加 {qtype}，请新建试题组")
     if not q.get("id"):
-        q["id"] = f"q{len(questions) + 1}"
+        # 取已有 q<N> 的最大编号 + 1，避免删除后追加时 id 冲突（可用 remove-question --renumber 紧凑化）
+        nums = [int(m.group(1)) for x in questions if isinstance(x, dict)
+                and (m := re.fullmatch(r"q(\d+)", str(x.get("id") or "")))]
+        q["id"] = f"q{max(nums, default=0) + 1}"
     questions.append(q)
     meta = fill_meta_defaults(meta, questions)
     save_item(d, meta, questions)
@@ -502,11 +536,19 @@ def cmd_set_passage(args):
     q = passage_question(questions)
     if q is not None:
         if not args.replace:
-            fail(f"{d.name}: 短文已存在；确认要重写时加 --replace（会清掉已有 {len(q.get('blanks', []))} 个空位）")
-        old = len(q.get("blanks", []))
+            fail(f"{d.name}: 短文已存在；确认要重写时加 --replace（默认只保留新短文中仍出现的空位）")
+        old = q.get("blanks", [])
+        # 卡点优化：不再盲目清空；新 passage 里仍出现的标记，其已有空位保留
+        kept = [b for b in old if b.get("label") in markers]
+        kept.sort(key=lambda b: markers.index(b["label"]))
+        dropped = [b.get("label") for b in old if b.get("label") not in markers]
         q["passage"] = text
-        q["blanks"] = []
-        print(f"  ! 已重写 {d.name} 短文，原有 {old} 个空位已清空，请逐空重新添加")
+        q["blanks"] = kept
+        if dropped:
+            print(f"  ! 已重写 {d.name} 短文，空位 {dropped} 在新短文中无对应标记，已删除")
+        missing = [m for m in markers if m not in {b.get("label") for b in kept}]
+        if missing:
+            print(f"  ! 新短文有 {len(missing)} 个空位待填: {missing}（用 add-blank-* 逐空补上）")
     else:
         if questions:
             fail(f"{d.name}: 试题组内已有其他题型，不能放短文题，请新建试题组")
@@ -550,6 +592,7 @@ def questions_with(d: Path, updated: dict) -> list:
 
 def cmd_add_blank_gap(args):
     d = item_dir(Path(args.exam_dir), args.item)
+    check_label_unique_across_items(Path(args.exam_dir), d, args.label)
     q = get_gap_q(d, "gap-fill")
     check_label_in_passage(q, args.label, d)
     opts = q.get("options") or []
@@ -568,6 +611,7 @@ def cmd_add_blank_gap(args):
 
 def cmd_add_blank_cloze(args):
     d = item_dir(Path(args.exam_dir), args.item)
+    check_label_unique_across_items(Path(args.exam_dir), d, args.label)
     q = get_gap_q(d, "cloze")
     check_label_in_passage(q, args.label, d)
     opts = parse_opts(args.opt, "--opt")
@@ -586,6 +630,7 @@ def cmd_add_blank_cloze(args):
 
 def cmd_add_blank_grammar(args):
     d = item_dir(Path(args.exam_dir), args.item)
+    check_label_unique_across_items(Path(args.exam_dir), d, args.label)
     q = get_gap_q(d, "grammar-fill")
     check_label_in_passage(q, args.label, d)
     if not args.answer.strip():
@@ -603,6 +648,120 @@ def cmd_add_blank_grammar(args):
 
 
 # ---------- 修正命令 ----------
+
+def cmd_update_question(args):
+    d = item_dir(Path(args.exam_dir), args.item)
+    questions = load_questions(d)
+    q = next((x for x in questions if isinstance(x, dict) and x.get("id") == args.id), None)
+    if q is None:
+        fail(f"{d.name}: 没有题目 id={args.id}（现有: {[x.get('id') for x in questions]}）")
+    qtype = q.get("type")
+    if qtype in PASSAGE_TYPES:
+        fail(f"{d.name}/{args.id} 是短文题型（{qtype}），请用 update-blank 修改其中的空位")
+    changed = []
+    if args.question is not None:
+        if qtype == "writing":
+            fail(f"{d.name}/{args.id}: 书面表达用 --prompt 改题干要求")
+        q["question"] = read_text_arg(args.question, "--question")
+        changed.append("question")
+    if args.opt is not None:
+        if qtype == "writing":
+            fail(f"{d.name}/{args.id}: 书面表达没有选项")
+        q["options"] = parse_opts(args.opt, "--opt")
+        changed.append("options")
+    if args.answer is not None:
+        keys = [o["key"] for o in q.get("options", [])]
+        if not keys:
+            fail(f"{d.name}/{args.id}: 该题没有选项，无法校验 --answer")
+        args.answer = args.answer.strip()
+        check_answer(args.answer, keys, f"{d.name}/{args.id}")
+        q["answer"] = args.answer
+        changed.append("answer")
+    if args.explanation is not None:
+        q["explanation"] = read_text_arg(args.explanation, "--explanation")
+        changed.append("explanation")
+    if args.no_explanation:
+        q.pop("explanation", None)
+        changed.append("explanation(移除)")
+    if args.prompt is not None:
+        if qtype != "writing":
+            fail(f"{d.name}/{args.id}: --prompt 只适用于书面表达")
+        q["prompt"] = read_text_arg(args.prompt, "--prompt")
+        changed.append("prompt")
+    for flag, field in (("--sample", "sample"), ("--comment", "comment"), ("--greeting", "greeting"), ("--closing", "closing")):
+        value = getattr(args, flag[2:].replace("-", "_"))
+        if value is not None:
+            if qtype != "writing":
+                fail(f"{d.name}/{args.id}: {flag} 只适用于书面表达")
+            q[field] = read_text_arg(value, flag)
+            changed.append(field)
+    if args.no_sample:
+        q.pop("sample", None); changed.append("sample(移除)")
+    if args.no_comment:
+        q.pop("comment", None); changed.append("comment(移除)")
+    if args.point is not None:
+        if qtype != "writing":
+            fail(f"{d.name}/{args.id}: --point 只适用于书面表达")
+        q["points"] = args.point
+        changed.append("points")
+    if args.no_points:
+        q.pop("points", None); changed.append("points(移除)")
+    if not changed:
+        fail("未提供要修改的字段（如 --question/--opt/--answer/--explanation/--prompt/--sample…）")
+    save_item(d, load_meta(d), questions)
+    print(f"  ✓ {d.name}/{args.id} 已更新: {'、'.join(changed)}")
+    return 0
+
+
+def cmd_update_blank(args):
+    d = item_dir(Path(args.exam_dir), args.item)
+    q = get_passage_q(d, load_questions(d))
+    blank = next((b for b in q.get("blanks", []) if b.get("label") == args.label), None)
+    if blank is None:
+        fail(f"{d.name}: 没有空位 {args.label}（现有: {[b.get('label') for b in q.get('blanks', [])]}）")
+    changed = []
+    if args.answer is not None:
+        args.answer = args.answer.strip()
+        if q.get("type") == "grammar-fill":
+            if not args.answer:
+                fail("--answer 不能为空（填单词或词形）")
+        else:
+            keys = [o["key"] for o in (blank.get("options") or q.get("options") or [])]
+            if not keys:
+                fail(f"{d.name} 空位 {args.label}: 没有可选选项，无法校验 --answer")
+            check_answer(args.answer, keys, f"{d.name} 空位 {args.label}")
+        blank["answer"] = args.answer
+        changed.append("answer")
+    if args.opt is not None:
+        if q.get("type") != "cloze":
+            fail(f"{d.name}: 只有完形填空的空位有独立选项（--opt）")
+        opts = parse_opts(args.opt, "--opt")
+        if len(opts) != 4:
+            print(f"WARN  {d.name}: 空位 {args.label} 有 {len(opts)} 个选项（通常为 4 项）")
+        blank["options"] = opts
+        changed.append("options")
+    if args.answer is not None and q.get("type") == "cloze":
+        check_answer(blank["answer"], [o["key"] for o in blank.get("options", [])], f"{d.name} 空位 {args.label}")
+    if args.explanation is not None:
+        blank["explanation"] = read_text_arg(args.explanation, "--explanation")
+        changed.append("explanation")
+    if args.no_explanation:
+        blank.pop("explanation", None)
+        changed.append("explanation(移除)")
+    if args.hint is not None:
+        if q.get("type") != "grammar-fill":
+            fail(f"{d.name}: 只有语法填空的空位支持 --hint")
+        blank["hint"] = read_text_arg(args.hint, "--hint")
+        changed.append("hint")
+    if args.no_hint:
+        blank.pop("hint", None)
+        changed.append("hint(移除)")
+    if not changed:
+        fail("未提供要修改的字段（--answer/--opt/--explanation/--hint）")
+    save_item(d, load_meta(d), questions_with(d, q))
+    print(f"  ✓ {d.name} 空位 {args.label} 已更新: {'、'.join(changed)}")
+    return 0
+
 
 def cmd_remove_item(args):
     import shutil
@@ -625,8 +784,18 @@ def cmd_remove_question(args):
     remaining = [q for q in questions if q.get("id") != args.id]
     if len(remaining) == len(questions):
         fail(f"{d.name}: 没有题目 id={args.id}（现有: {[q.get('id') for q in questions]}）")
+    note = ""
+    if args.renumber:
+        mapping = {}
+        for idx, q in enumerate(remaining, 1):
+            new_id = f"q{idx}"
+            if q.get("id") != new_id:
+                mapping[q.get("id")] = new_id
+            q["id"] = new_id
+        if mapping:
+            note = f"，已重排 id: {mapping}"
     save_item(d, load_meta(d), remaining)
-    print(f"  ✓ 已删除 {d.name}/{args.id}（剩 {len(remaining)} 题）")
+    print(f"  ✓ 已删除 {d.name}/{args.id}（剩 {len(remaining)} 题）{note}")
     return 0
 
 
@@ -638,8 +807,12 @@ def cmd_remove_blank(args):
     if len(remaining) == len(blanks):
         fail(f"{d.name}: 没有空位 {args.label}（现有: {[b.get('label') for b in blanks]}）")
     q["blanks"] = remaining
+    # 同步移除 passage 中对应的标记，避免标记与空位不一一对应
+    q["passage"], n = re.subn(rf"\{{{{blank:{re.escape(args.label)}}}}}", "", q.get("passage", ""))
+    q["passage"] = re.sub(r"[ \t]+\n", "\n", q["passage"])
     save_item(d, refresh_passage_meta(load_meta(d), q), questions_with(d, q))
-    print(f"  ✓ 已删除 {d.name} 空位 {args.label}（剩 {len(remaining)} 个）")
+    marker_note = f"，passage 标记 {{{{blank:{args.label}}}}} 已同步移除" if n else ""
+    print(f"  ✓ 已删除 {d.name} 空位 {args.label}（剩 {len(remaining)} 个）{marker_note}")
     return 0
 
 
@@ -736,7 +909,7 @@ def main() -> int:
     p.add_argument("--item", required=True)
     p.add_argument("--type", required=True, choices=sorted(PASSAGE_TYPES))
     p.add_argument("--passage", required=True, help="短文正文，含 {{blank:题号}} 标记（支持 @文件 与 -）")
-    p.add_argument("--replace", action="store_true", help="重写短文（清掉已有空位）")
+    p.add_argument("--replace", action="store_true", help="重写短文（新短文中仍出现的空位保留，其余删除；缺失空位用 add-blank-* 补）")
     p.set_defaults(func=cmd_set_passage)
 
     p = sub.add_parser("gap-set-options", help="设置五选五共用备选句")
@@ -771,6 +944,38 @@ def main() -> int:
     p.add_argument("--explanation")
     p.set_defaults(func=cmd_add_blank_grammar)
 
+    p = sub.add_parser("update-question", help="修改一道题的单个或多个字段")
+    p.add_argument("exam_dir")
+    p.add_argument("--item", required=True)
+    p.add_argument("--id", required=True, help="题目 id，如 q3")
+    p.add_argument("--question", help="新题干（支持 @文件 与 -；阅读/情景）")
+    p.add_argument("--opt", action="append", help="替换全部选项，格式 A=选项内容（可重复）")
+    p.add_argument("--answer", help="正确选项 key")
+    p.add_argument("--explanation", help="解析（支持 @文件 与 -）")
+    p.add_argument("--no-explanation", action="store_true", help="移除解析")
+    p.add_argument("--prompt", help="书面表达题干要求（支持 @文件 与 -）")
+    p.add_argument("--greeting", help="书面表达开头（仅写作）")
+    p.add_argument("--closing", help="书面表达结尾（仅写作）")
+    p.add_argument("--point", action="append", help="写作要点（可重复；仅写作）")
+    p.add_argument("--sample", help="参考范文（支持 @文件 与 -；仅写作）")
+    p.add_argument("--comment", help="范文点评（支持 @文件 与 -；仅写作）")
+    p.add_argument("--no-sample", action="store_true", help="移除范文（仅写作）")
+    p.add_argument("--no-comment", action="store_true", help="移除点评（仅写作）")
+    p.add_argument("--no-points", action="store_true", help="移除写作要点（仅写作）")
+    p.set_defaults(func=cmd_update_question)
+
+    p = sub.add_parser("update-blank", help="修改一个空位（五选五/完形/语法填空）")
+    p.add_argument("exam_dir")
+    p.add_argument("--item", required=True)
+    p.add_argument("--label", required=True, help="空位题号")
+    p.add_argument("--answer", help="新答案（选项 key 或单词）")
+    p.add_argument("--opt", action="append", help="替换该空位选项，格式 A=单词（仅完形，重复 4 次）")
+    p.add_argument("--explanation", help="解析（支持 @文件 与 -）")
+    p.add_argument("--no-explanation", action="store_true", help="移除解析")
+    p.add_argument("--hint", help="括号提示词（仅语法填空）")
+    p.add_argument("--no-hint", action="store_true", help="移除提示词（仅语法填空）")
+    p.set_defaults(func=cmd_update_blank)
+
     p = sub.add_parser("remove-item", help="删除整个试题组（不可恢复）")
     p.add_argument("exam_dir")
     p.add_argument("--item", required=True)
@@ -781,6 +986,7 @@ def main() -> int:
     p.add_argument("exam_dir")
     p.add_argument("--item", required=True)
     p.add_argument("--id", required=True)
+    p.add_argument("--renumber", action="store_true", help="删除后把剩余题 id 重排为 q1..qn（避免后续 add 时 id 冲突）")
     p.set_defaults(func=cmd_remove_question)
 
     p = sub.add_parser("remove-blank", help="删除一个空位（连同其选项）")

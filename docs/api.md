@@ -27,7 +27,7 @@ Python 客户端：`skills/classbuddy-exam-creator/scripts/classbuddy_api.py`（
 | 方法 | 路径 | 请求体 | 说明 |
 | --- | --- | --- | --- |
 | PUT | `/api/items/:exam/:item` | `{ "meta": {...}, "material": "Markdown 文本", "questions": [...], "resetAnnotations": false }` | 创建或整体替换试题组；未提供的字段写默认值（`{}` / `""` / `[]`）。批注默认保留；`resetAnnotations: true` 时重置为空 |
-| PATCH | `/api/items/:exam/:item` | 上三者中任意字段的子集 | 局部更新，仅写入提供的字段；一个都不提供返回 400 |
+| PATCH | `/api/items/:exam/:item` | 上三者中任意字段的子集（另可选 `"resetAnnotations": true`） | 局部更新，仅写入提供的字段；一个都不提供返回 400。material 变化且已有批注时响应带 `warning` 字段提示批注可能错位 |
 | DELETE | `/api/items/:exam/:item` | — | 删除试题组 |
 
 字段校验（服务端轻校验）：`meta` 必须是对象、`material` 必须是字符串、`questions` 必须是数组；题目结构深度校验由调用方用 `validate_exam.py` 完成后再上传。
