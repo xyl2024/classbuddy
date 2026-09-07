@@ -356,6 +356,21 @@ export function AnnotationSurface({
     drawingPoints.current = [];
   };
 
+  /** 指针被浏览器取消（触屏上系统手势/滚动抢占、双指缩放、主动释放捕获等）：
+   * 复位在绘制中的状态，避免残留 drawingPoints / erasing 标志；画布交由下一帧 draw 重绘。 */
+  const onPointerCancel = (e: ReactPointerEvent<HTMLElement>) => {
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      /* 捕获可能已丢失，忽略 */
+    }
+    drawingPoints.current = [];
+    erasing.current = false;
+    erasePreview.current = null;
+    erasedIds.current = new Set();
+    drawPreview();
+  };
+
   /** 选择工具下鼠标悬停在文本批注上时，光标变为可点击态 */
   const onMouseMove = (e: ReactMouseEvent<HTMLElement>) => {
     if (tool !== 'select') {
@@ -479,6 +494,7 @@ export function AnnotationSurface({
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
+        onPointerCancel={onPointerCancel}
         onMouseUp={onMouseUp}
         onMouseMove={onMouseMove}
         onClickCapture={onClickCapture}
