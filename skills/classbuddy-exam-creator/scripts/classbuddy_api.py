@@ -236,7 +236,7 @@ def cmd_push_exam(args):
     if args.force and exam_exists(args, exam_id):
         request(args, "DELETE", f"/api/examinations/{exam_id}")
         print(f"已删除同名考试集“{exam_id}”")
-    elif not exam_exists(args, exam_id):
+    if not exam_exists(args, exam_id):
         request(args, "POST", "/api/examinations", {"id": exam_id})
     exam_meta = {}
     meta_file = exam_dir / "meta.json"
