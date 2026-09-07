@@ -11,14 +11,14 @@
 # 安装依赖
 npm install
 
-# 开发环境启动，默认读取 ./data，监听 3000 端口
-npm run dev -- --data ./data --port 3000
+# 开发环境启动，默认读取 ~/.classbuddy/（可用 --data 覆盖），监听 3000 端口
+npm run dev -- --port 3000
 
 # 生产构建
 npm run build
 
 # 生产环境启动
-NODE_ENV=production npm run start -- --data ./data --port 3000
+NODE_ENV=production npm run start -- --port 3000
 ```
 
 每次修改 TypeScript、React 或服务端代码后，至少执行 `npm run build` 验证类型检查和生产构建。
@@ -42,7 +42,7 @@ CONTEXT.md             # 领域术语
 
 ## 数据目录约定
 
-启动参数 `--data` 指向包含多个考试集的根目录：
+默认数据目录为 `~/.classbuddy/`（启动时自动创建）；可用启动参数 `--data` 或环境变量 `CLASSBUDDY_DATA` 指向其他根目录。目录内包含多个考试集：
 
 ```text
 <data-dir>/
@@ -91,6 +91,7 @@ CONTEXT.md             # 领域术语
 - 支持书面表达题型：`type: "writing"`，含 `prompt`（题干要求）、`greeting`/`closing`（已给出开头结尾）、`points`（写作要点）、`sample`（参考范文）与 `comment`（范文点评）；与情景交际一样采用单栏布局（无材料区），预览后作文纸展示范文与点评。
 - 答案默认隐藏，可逐题或全部预览；预览时显示正确答案和解析。
 - 外部文件变化通过服务端事件通知，页面提示教师手动重新加载。
+- 首页支持试卷数据的上传与下载：上传 zip 压缩包导入为考试集（同名需确认覆盖），下载将考试集导出为 zip。
 - 单个试题组文件异常不应导致整个服务启动失败，应在导航中标记异常。
 
 ## 修改规范

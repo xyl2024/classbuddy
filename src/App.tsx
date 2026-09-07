@@ -183,7 +183,7 @@ export default function App() {
   if (!activeExam) {
     return (
       <div className="app">
-        <HomePage exams={exams} onOpen={openExam} />
+        <HomePage exams={exams} onOpen={openExam} onImported={loadExams} />
         {toast}
       </div>
     );

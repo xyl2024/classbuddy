@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
+    "adm-zip": "^0.6.0",
     "express": "latest",
     "lucide-react": "^1.41.0",
     "marked": "latest",
@@ -19,6 +20,7 @@
     "vite": "latest"
   },
   "devDependencies": {
+    "@types/adm-zip": "^0.5.8",
     "@types/express": "latest",
     "@types/node": "latest",
     "@types/react": "latest",

@@ -13,7 +13,12 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}
 .home-head{text-align:center;margin-bottom:44px}
 .home-brand{display:inline-flex;align-items:center;gap:8px;font-family:'Playfair Display',serif;font-size:17px;font-weight:700;color:#3075d7;background:#eef5ff;border-radius:999px;padding:8px 18px;margin-bottom:26px}
 .home-head h1{font-family:'Playfair Display',serif;font-size:34px;margin:0 0 8px;color:#233247}
-.home-head p{margin:0;color:#99a4b1;font-size:14px}
+.home-head p{margin:0;color:#99a4b1;font-size:14px;display:flex;justify-content:center}
+.upload-btn{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:#3075d7;background:#eef5ff;border:1px solid #d5e6fb;border-radius:999px;padding:8px 18px;margin-left:12px;transition:background .15s,border-color .15s}
+.upload-btn:hover:not(:disabled){background:#e0edff;border-color:#bcd6f8}
+.upload-btn:disabled{opacity:.6;cursor:default}
+.exam-card-download{margin-left:auto;color:#a7b2bf;padding:4px;border-radius:6px;display:inline-flex}
+.exam-card-download:hover{background:#eef5ff;color:#3075d7}
 .exam-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;max-width:960px;width:100%;margin:0 auto}
 .exam-card{background:#fff;border:1px solid #e8edf3;border-radius:14px;padding:24px 20px;text-align:left;display:flex;flex-direction:column;gap:10px;box-shadow:0 2px 8px #1826380d;transition:transform .15s,box-shadow .15s,border-color .15s}
 .exam-card:hover{transform:translateY(-2px);border-color:#bcd6f8;box-shadow:0 8px 20px #1826381a}

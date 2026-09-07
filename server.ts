@@ -1,15 +1,24 @@
 import express from 'express';
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import AdmZip from 'adm-zip';
 import { fileURLToPath } from 'node:url';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
-const dataDir = path.resolve(args[args.indexOf('--data') + 1] || './data');
-const port = Number(args[args.indexOf('--port') + 1] || 3000);
+const argValue = (name: string) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined; };
+// 默认数据目录：~/.classbuddy/，可用 --data 覆盖
+const dataDir = path.resolve(argValue('--data') || process.env.CLASSBUDDY_DATA || path.join(os.homedir(), '.classbuddy'));
+const port = Number(argValue('--port') || 3000);
 const app = express();
 app.use(express.json({ limit: '10mb' }));
+app.use(express.raw({ type: 'application/zip', limit: '100mb' }));
+await fs.mkdir(dataDir, { recursive: true });
+
+/** 广播文件变化事件给已连接的客户端 */
+const notifyChange = () => { for (const client of clients) client.write(`data: ${JSON.stringify({ type: 'files-changed' })}\n\n`); };
 
 const safe = (value: string) => value.split('/').every((part) => part && part !== '..' && part !== '.');
 const readJson = async (file: string, fallback: unknown) => { try { return JSON.parse(await fs.readFile(file, 'utf8')); } catch { return fallback; } };
@@ -49,6 +58,59 @@ app.put('/api/items/:exam/:item/annotations', async (req, res) => {
   const dir = path.join(dataDir, req.params.exam, req.params.item);
   try { await fs.mkdir(dir, { recursive: true }); await fs.writeFile(path.join(dir, 'annotations.json'), JSON.stringify({ version: 1, annotations: req.body.annotations }, null, 2)); res.json({ ok: true }); }
   catch { res.status(500).json({ error: '批注保存失败' }); }
+});
+
+// ---- 考试集导入/导出 ----
+/** 合法目录名：非空且不含路径分隔符 */
+const validName = (value: string) => !!value && !/[/\\]/.test(value) && value !== '.' && value !== '..';
+
+/** 导出考试集为 zip 下载 */
+app.get('/api/examinations/:exam/export', async (req, res) => {
+  if (!validName(req.params.exam)) return res.status(400).json({ error: 'invalid path' });
+  const dir = path.join(dataDir, req.params.exam);
+  try {
+    await fs.access(dir);
+  } catch { return res.status(404).json({ error: '考试集不存在' }); }
+  const zip = new AdmZip();
+  zip.addLocalFolder(dir, req.params.exam);
+  res.set({ 'Content-Type': 'application/zip', 'Content-Disposition': `attachment; filename="${encodeURIComponent(req.params.exam)}.zip"` });
+  res.send(zip.toBuffer());
+});
+
+/** 导入考试集：请求体为 zip；目录名优先取压缩包内唯一顶层目录，否则用 URL 中的名称 */
+app.put('/api/examinations/:exam', async (req, res) => {
+  const name = req.params.exam;
+  if (!validName(name)) return res.status(400).json({ error: 'invalid path' });
+  const body = Buffer.isBuffer(req.body) ? req.body : null;
+  if (!body?.length) return res.status(400).json({ error: '请上传 zip 压缩包' });
+  let zip: AdmZip;
+  try { zip = new AdmZip(body); } catch { return res.status(400).json({ error: '无法解析压缩包，请确认上传的是 zip 文件' }); }
+  const entries = zip.getEntries();
+  // 压缩包若含唯一顶层目录，则以该目录作为考试集目录名，并去掉该层前缀
+  const topLevels = new Set(entries.filter((e) => !e.isDirectory).map((e) => e.entryName.split('/')[0]));
+  const topLevel = topLevels.size === 1 ? [...topLevels][0] : '';
+  const prefix = validName(topLevel) ? topLevel : name;
+  const target = path.join(dataDir, prefix);
+  const overwrite = req.query.overwrite === '1';
+  if (!overwrite && (await fs.access(target).then(() => true).catch(() => false)))
+    return res.status(409).json({ error: `考试集“${prefix}”已存在` });
+  // 先校验全部条目路径（防止 zip 内路径逃逸数据目录），再覆盖写入
+  const cleaned = entries
+    .filter((e) => !e.isDirectory)
+    .map((e) => ({ entry: e, relative: topLevel ? e.entryName.slice(prefix.length + 1) : e.entryName }))
+    .filter(({ relative }) => relative.split('/').every((part) => part && part !== '..' && part !== '.'));
+  if (!cleaned.length) return res.status(400).json({ error: '压缩包中没有有效文件' });
+  try {
+    await fs.rm(target, { recursive: true, force: true });
+    for (const { entry, relative } of cleaned) {
+      const file = path.join(target, relative);
+      if (!file.startsWith(target + path.sep)) continue;
+      await fs.mkdir(path.dirname(file), { recursive: true });
+      await fs.writeFile(file, entry.getData());
+    }
+  } catch { return res.status(500).json({ error: '导入失败，无法写入数据目录' }); }
+  notifyChange();
+  res.json({ ok: true, exam: prefix });
 });
 
 const clients = new Set<express.Response>();
