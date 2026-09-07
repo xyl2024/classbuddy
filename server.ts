@@ -60,9 +60,127 @@ app.put('/api/items/:exam/:item/annotations', async (req, res) => {
   catch { res.status(500).json({ error: '批注保存失败' }); }
 });
 
-// ---- 考试集导入/导出 ----
+// ---- 考试集/试题组增删查改（供 AI Agent 通过 HTTP 调用）----
 /** 合法目录名：非空且不含路径分隔符 */
 const validName = (value: string) => !!value && !/[/\\]/.test(value) && value !== '.' && value !== '..';
+const exists = (file: string) => fs.access(file).then(() => true).catch(() => false);
+const EMPTY_ANNOTATIONS = { version: 1, annotations: [] as unknown[] };
+
+/** 查看考试集完整内容：元数据 + 全部试题组的 meta/material/questions（不含批注） */
+app.get('/api/examinations/:exam/full', async (req, res) => {
+  if (!validName(req.params.exam)) return res.status(400).json({ error: 'invalid path' });
+  const examDir = path.join(dataDir, req.params.exam);
+  if (!(await exists(examDir))) return res.status(404).json({ error: '考试集不存在' });
+  const meta = await readJson(path.join(examDir, 'meta.json'), { name: req.params.exam });
+  const items: any[] = [];
+  for (const entry of (await fs.readdir(examDir, { withFileTypes: true })).filter((e) => e.isDirectory() && e.name.startsWith('item-')).sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))) {
+    const dir = path.join(examDir, entry.name);
+    items.push({
+      id: entry.name,
+      meta: await readJson(path.join(dir, 'meta.json'), {}),
+      material: await fs.readFile(path.join(dir, 'material.md'), 'utf8').catch(() => null),
+      questions: await readJson(path.join(dir, 'questions.json'), null),
+    });
+  }
+  res.json({ id: req.params.exam, meta, items });
+});
+
+/** 新建考试集：body { id, name?, description? }，id 即目录名 */
+app.post('/api/examinations', async (req, res) => {
+  const id = typeof req.body?.id === 'string' ? req.body.id.trim() : '';
+  if (!validName(id)) return res.status(400).json({ error: '需要合法的考试集 id（同时作为目录名）' });
+  if (await exists(path.join(dataDir, id))) return res.status(409).json({ error: `考试集“${id}”已存在，如需覆盖请先删除` });
+  try {
+    await fs.mkdir(path.join(dataDir, id), { recursive: true });
+    await fs.writeFile(path.join(dataDir, id, 'meta.json'), JSON.stringify({ name: req.body?.name || id, description: req.body?.description || '' }, null, 2));
+  } catch { return res.status(500).json({ error: '考试集创建失败' }); }
+  notifyChange();
+  res.status(201).json({ ok: true, exam: id });
+});
+
+/** 更新考试集元数据：body { name?, description? }，仅更新提供的字段 */
+app.patch('/api/examinations/:exam', async (req, res) => {
+  if (!validName(req.params.exam)) return res.status(400).json({ error: 'invalid path' });
+  const examDir = path.join(dataDir, req.params.exam);
+  if (!(await exists(examDir))) return res.status(404).json({ error: '考试集不存在' });
+  const meta: any = await readJson(path.join(examDir, 'meta.json'), {});
+  if (req.body?.name !== undefined) meta.name = req.body.name;
+  if (req.body?.description !== undefined) meta.description = req.body.description;
+  try { await fs.writeFile(path.join(examDir, 'meta.json'), JSON.stringify(meta, null, 2)); } catch { return res.status(500).json({ error: '考试集元数据保存失败' }); }
+  notifyChange();
+  res.json({ ok: true });
+});
+
+/** 删除考试集（连同全部试题组） */
+app.delete('/api/examinations/:exam', async (req, res) => {
+  if (!validName(req.params.exam)) return res.status(400).json({ error: 'invalid path' });
+  const examDir = path.join(dataDir, req.params.exam);
+  if (!(await exists(examDir))) return res.status(404).json({ error: '考试集不存在' });
+  try { await fs.rm(examDir, { recursive: true, force: true }); } catch { return res.status(500).json({ error: '考试集删除失败' }); }
+  notifyChange();
+  res.json({ ok: true });
+});
+
+/** 试题组字段校验：meta 为对象、material 为字符串、questions 为数组 */
+const itemFieldErrors = (body: any) => {
+  if (body.meta !== undefined && (typeof body.meta !== 'object' || body.meta === null || Array.isArray(body.meta))) return 'meta 必须是对象';
+  if (body.material !== undefined && typeof body.material !== 'string') return 'material 必须是字符串（Markdown 文本）';
+  if (body.questions !== undefined && !Array.isArray(body.questions)) return 'questions 必须是题目数组';
+  return '';
+};
+
+/** 创建或整体替换试题组：body { meta?, material?, questions?, resetAnnotations? }；批注默认保留 */
+app.put('/api/items/:exam/:item', async (req, res) => {
+  const { exam, item } = req.params;
+  if (!validName(exam) || !validName(item)) return res.status(400).json({ error: 'invalid path' });
+  const error = itemFieldErrors(req.body || {});
+  if (error) return res.status(400).json({ error });
+  const examDir = path.join(dataDir, exam);
+  if (!(await exists(examDir))) return res.status(404).json({ error: '考试集不存在，请先创建考试集' });
+  const dir = path.join(examDir, item);
+  const body = req.body || {};
+  try {
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(path.join(dir, 'meta.json'), JSON.stringify(body.meta ?? {}, null, 2));
+    await fs.writeFile(path.join(dir, 'material.md'), body.material ?? '');
+    await fs.writeFile(path.join(dir, 'questions.json'), JSON.stringify(body.questions ?? [], null, 2));
+    if (body.resetAnnotations || !(await exists(path.join(dir, 'annotations.json')))) await fs.writeFile(path.join(dir, 'annotations.json'), JSON.stringify(EMPTY_ANNOTATIONS, null, 2));
+  } catch { return res.status(500).json({ error: '试题组保存失败' }); }
+  notifyChange();
+  res.json({ ok: true, item });
+});
+
+/** 局部更新试题组：body 中仅写入提供的 meta / material / questions 字段 */
+app.patch('/api/items/:exam/:item', async (req, res) => {
+  const { exam, item } = req.params;
+  if (!validName(exam) || !validName(item)) return res.status(400).json({ error: 'invalid path' });
+  const body = req.body || {};
+  const error = itemFieldErrors(body);
+  if (error) return res.status(400).json({ error });
+  if (body.meta === undefined && body.material === undefined && body.questions === undefined) return res.status(400).json({ error: '请求体中未提供任何要更新的字段（meta / material / questions）' });
+  const dir = path.join(dataDir, exam, item);
+  if (!(await exists(dir))) return res.status(404).json({ error: '试题组不存在' });
+  try {
+    if (body.meta !== undefined) await fs.writeFile(path.join(dir, 'meta.json'), JSON.stringify(body.meta, null, 2));
+    if (body.material !== undefined) await fs.writeFile(path.join(dir, 'material.md'), body.material);
+    if (body.questions !== undefined) await fs.writeFile(path.join(dir, 'questions.json'), JSON.stringify(body.questions, null, 2));
+  } catch { return res.status(500).json({ error: '试题组保存失败' }); }
+  notifyChange();
+  res.json({ ok: true });
+});
+
+/** 删除试题组 */
+app.delete('/api/items/:exam/:item', async (req, res) => {
+  const { exam, item } = req.params;
+  if (!validName(exam) || !validName(item)) return res.status(400).json({ error: 'invalid path' });
+  const dir = path.join(dataDir, exam, item);
+  if (!(await exists(dir))) return res.status(404).json({ error: '试题组不存在' });
+  try { await fs.rm(dir, { recursive: true, force: true }); } catch { return res.status(500).json({ error: '试题组删除失败' }); }
+  notifyChange();
+  res.json({ ok: true });
+});
+
+// ---- 考试集导入/导出 ----
 
 /** 导出考试集为 zip 下载 */
 app.get('/api/examinations/:exam/export', async (req, res) => {

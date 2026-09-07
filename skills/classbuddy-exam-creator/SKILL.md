@@ -1,6 +1,6 @@
 ---
 name: classbuddy-exam-creator
-description: 为 classbuddy（英语试题讲解工具）生成一套完整的考试集试卷。当用户要求"出一张卷子/出一套试卷/生成考试集/出题/制作英语试题"等，且目标数据要符合 classbuddy 的试卷目录结构与 questions.json 数据结构时，必须使用本 skill。涵盖情景交际、阅读理解、五选五（选句填空）、完形填空、语法填空、书面表达六种题型的生成规范与校验。
+description: 为 classbuddy（英语试题讲解工具）生成一套完整的考试集试卷。当用户要求"出一张卷子/出一套试卷/生成考试集/出题/制作英语试题"，或要求通过接口对已有试卷增删查改（创建/更新/删除考试集与试题组）时，必须使用本 skill。涵盖情景交际、阅读理解、五选五（选句填空）、完形填空、语法填空、书面表达六种题型的生成规范与校验，并通过 scripts/classbuddy_api.py 把试卷推送到运行中的 classbuddy 服务。
 ---
 
 # ClassBuddy 试卷生成
@@ -10,10 +10,11 @@ description: 为 classbuddy（英语试题讲解工具）生成一套完整的�
 ## 总体流程
 
 1. **先问，后写**：向用户询问出题资料（见下节）。除非用户在请求里已经把难度、考察重点、范围都写清楚了，否则生成前必须先问。
-2. **确认输出位置**：默认写到项目的 `data/<exam-name>/`（`data/` 已被 gitignore，适合本地测试）。如用户指定了其他目标目录，以用户为准。
+2. **确认输出位置**：本地先写到临时目录（如 `data/<exam-name>/`，`data/` 已被 gitignore，适合本地测试）；如用户指定了目标目录，以用户为准。
 3. **按固定顺序生成 7 个试题组**（结构见下文"标准试卷结构"）。
 4. **校验**：运行 `python3 <skill目录>/scripts/validate_exam.py <考试集目录>`，根据输出修复问题，直到 0 errors。warnings 逐条判断是否需要处理。
-5. **交付**：告诉用户考试集目录位置，并提示可用 `npm run dev -- --data <data目录>` 启动后在首页查看。
+5. **推送到服务**：若 classbuddy 服务正在运行（默认 `http://localhost:3000`），用 `python3 <skill目录>/scripts/classbuddy_api.py push-exam <考试集目录>` 通过 HTTP 接口整体上传，页面会实时感知（见下文"通过接口写入运行中的服务"）。
+6. **交付**：告诉用户考试集目录位置与推送结果，并提示可在首页查看。
 
 在开始生成前，先阅读 `references/question-schemas.md`，其中是六种题型的完整字段定义与示例——所有字段名、空位标记格式都以它为准，不要凭记忆编写。
 
@@ -90,3 +91,34 @@ python3 <skill目录>/scripts/validate_exam.py <考试集目录>
 ```
 
 输出 `PASS` 即可交付；有 errors 时逐条修复后重跑。修复时优先对照 `references/question-schemas.md` 的字段定义，而不是猜测字段名。
+
+## 通过接口写入运行中的服务
+
+服务端（`server.ts`）提供试卷增删查改 HTTP 接口（详见 `docs/api.md`）；所有接口调用都通过 Python 脚本 `scripts/classbuddy_api.py` 完成，不要手写 curl 或直接改服务端数据目录。服务地址用 `--url` 或环境变量 `CLASSBUDDY_URL` 指定（默认 `http://localhost:3000`），脚本不可用时（未启动服务等）才回退为直接写文件。
+
+```bash
+API="python3 <skill目录>/scripts/classbuddy_api.py --url http://localhost:3000"
+
+# 一键：校验本地考试集目录并整体上传（服务端同名时用 --force 覆盖）
+$API push-exam <考试集目录> [--force]
+
+# 考试集级
+$API list-exams                       # 列出全部考试集
+$API get-exam <examId> [--full]       # 查看考试集（--full 含全部试题组内容）
+$API create-exam <examId> --name "中文名" [--force]
+$API update-exam <examId> --name "新名"
+$API delete-exam <examId> --yes
+
+# 试题组级
+$API get-item <examId> <itemId> --out <本地目录>          # 拉取到本地三个文件
+$API put-item <examId> <itemId> --dir <本地试题组目录>    # 整体替换（保留批注）
+$API patch-item <examId> <itemId> --questions questions.json   # 局部更新单个文件
+$API delete-item <examId> <itemId> --yes
+```
+
+约定：
+
+- **先读后写**：修改已有试卷前先用 `get-exam --full` / `get-item --out` 拉取现状，不要盲写。
+- `put-item` 整体替换会重写三个文件但**保留已有批注**；材料文本变了批注偏移量会失效，此时应加 `--reset-annotations`。
+- 局部改动（如只换解析）用 `patch-item`，避免覆盖其他文件。
+- 删除操作不可恢复，务必与用户确认后再执行。
