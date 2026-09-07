@@ -58,6 +58,10 @@ EXAM_ID_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$")
 AUTO_DESC_WRITING = "书面表达，含范文与点评"
 
 PASSAGE_TYPES = {"gap-fill", "cloze", "grammar-fill"}
+SECTION_TYPES = {
+    "situational-communication", "reading-comprehension",
+    "gap-fill", "cloze", "grammar-fill", "writing",
+}
 # 试题组 name 必须是且仅是这些题型名（材料卡片/题目卡片标题直接展示 name）
 ALLOWED_ITEM_NAMES = {"情景交际", "阅读理解", "五选五", "完形填空", "语法填空", "书面表达"}
 
@@ -181,7 +185,9 @@ def passage_question(questions: list) -> dict | None:
 
 def fill_meta_defaults(meta: dict, questions: list) -> dict:
     """按当前状态补全缺省元数据；用户显式设置过的字段（非缺省值）不覆盖。"""
-    n = len(questions)
+    passage_q = passage_question(questions)
+    # 短文题型（五选五/完形/语法填空）按空位数计小题数，其余按题目数
+    n = len(passage_q.get("blanks", [])) if passage_q else len(questions)
     qtype = next((q.get("type") for q in questions if isinstance(q, dict)), None)
     if qtype and not meta.get("sectionType"):
         meta["sectionType"] = QTYPE_TO_SECTION.get(qtype)
@@ -196,6 +202,22 @@ def fill_meta_defaults(meta: dict, questions: list) -> dict:
     auto = AUTO_DESC_WRITING if st == "writing" else (f"共{n}小题" if n else "")
     if not desc or re.fullmatch(r"共\d+小题", desc) or desc == AUTO_DESC_WRITING:
         meta["description"] = auto
+    return meta
+
+
+def refresh_passage_meta(meta: dict, q: dict) -> dict:
+    """空位数变化后重算短文题型的 totalScore 与“共 N 小题”描述。
+
+    （教师如需覆盖，可在空位添完后再用 update-item --total-score。）
+    """
+    if q.get("type") not in PASSAGE_TYPES:
+        return meta
+    if not meta.get("sectionType"):
+        meta["sectionType"] = QTYPE_TO_SECTION[q["type"]]
+    n = len(q.get("blanks", []))
+    spq = meta.get("scorePerQuestion", 1)
+    meta["totalScore"] = round(n * spq, 2)
+    meta["description"] = f"共{n}小题"
     return meta
 
 
@@ -296,6 +318,8 @@ def cmd_add_item(args):
     d = exam_dir / f"item-{idx}"
     d.mkdir(parents=True)
 
+    if args.type and args.type not in SECTION_TYPES:
+        fail(f"--type 必须是 {'/'.join(sorted(SECTION_TYPES))} 之一，得到 {args.type!r}")
     meta = {"name": args.name}
     if args.type:
         meta["sectionType"] = args.type
@@ -331,6 +355,12 @@ def cmd_set_material(args):
 
 def cmd_update_item(args):
     d = item_dir(Path(args.exam_dir), args.item)
+    questions = load_questions(d)
+    if args.type:
+        if args.type not in SECTION_TYPES:
+            fail(f"--type 必须是 {'/'.join(sorted(SECTION_TYPES))} 之一，得到 {args.type!r}")
+        if questions:
+            fail(f"{d.name}: 已有 {len(questions)} 道题，不能再用 --type 更换题型（当前基于题目内容会自动推导）；如确需换题型请新建试题组")
     meta = load_meta(d)
     if args.name:
         check_item_name(args.name)
@@ -370,10 +400,20 @@ def append_question(d: Path, q: dict) -> None:
     print(f"  ✓ {d.name}/{q['id']} {qtype}（现共 {len(questions)} 题）")
 
 
+def warn_item(item: str, message: str) -> None:
+    print(f"WARN  [{item}] {message}")
+
+
 def cmd_add_choice(args):
     if not args.question:
         fail("缺少 --question")
     d = item_dir(Path(args.exam_dir), args.item)
+    meta = load_meta(d)
+    if meta.get("sectionType") == "reading-comprehension":
+        mfile = d / "material.md"
+        text = mfile.read_text(encoding="utf-8") if mfile.is_file() else ""
+        if len(text.strip()) < 60:
+            warn_item(d.name, "阅读理解材料过短（疑似还是占位说明）；讲解前请用 set-material 写入完整文章")
     keys = [o["key"] for o in parse_opts(args.opt, "--opt")]
     check_answer(args.answer, keys, d.name)
     q = {
@@ -442,6 +482,12 @@ def cmd_set_passage(args):
     markers = BLANK_RE.findall(text)
     if not markers:
         fail(f"--passage 中没有任何 {{{{blank:题号}}}} 标记")
+    bad = [m for m in markers if not m.isdigit()]
+    if bad:
+        fail(f"--passage 中的题号必须是纯数字: {bad}（如 {{{{blank:36}}}}，不接受 {{{{blank:abc}}}}）")
+    dups = sorted({m for m in markers if markers.count(m) > 1})
+    if dups:
+        fail(f"--passage 中的题号标记必须唯一，重复: {dups}")
     q = passage_question(questions)
     if q is not None:
         if not args.replace:
@@ -502,7 +548,7 @@ def cmd_add_blank_gap(args):
         blank["explanation"] = read_text_arg(args.explanation, "--explanation")
     q["blanks"] = [b for b in q.get("blanks", []) if b.get("label") != args.label] + [blank]
     q["blanks"].sort(key=lambda b: [m for m in BLANK_RE.findall(q["passage"])].index(b["label"]))
-    save_item(d, load_meta(d), questions_with(d, q))
+    save_item(d, refresh_passage_meta(load_meta(d), q), questions_with(d, q))
     print(f"  ✓ {d.name} 空位 {args.label} → {args.answer}（共 {len(q['blanks'])} 个）")
     return 0
 
@@ -520,7 +566,7 @@ def cmd_add_blank_cloze(args):
         blank["explanation"] = read_text_arg(args.explanation, "--explanation")
     q["blanks"] = [b for b in q.get("blanks", []) if b.get("label") != args.label] + [blank]
     q["blanks"].sort(key=lambda b: [m for m in BLANK_RE.findall(q["passage"])].index(b["label"]))
-    save_item(d, load_meta(d), questions_with(d, q))
+    save_item(d, refresh_passage_meta(load_meta(d), q), questions_with(d, q))
     print(f"  ✓ {d.name} 空位 {args.label} → {args.answer}（共 {len(q['blanks'])} 个）")
     return 0
 
@@ -538,7 +584,7 @@ def cmd_add_blank_grammar(args):
         blank["explanation"] = read_text_arg(args.explanation, "--explanation")
     q["blanks"] = [b for b in q.get("blanks", []) if b.get("label") != args.label] + [blank]
     q["blanks"].sort(key=lambda b: [m for m in BLANK_RE.findall(q["passage"])].index(b["label"]))
-    save_item(d, load_meta(d), questions_with(d, q))
+    save_item(d, refresh_passage_meta(load_meta(d), q), questions_with(d, q))
     print(f"  ✓ {d.name} 空位 {args.label} → {args.answer}（共 {len(q['blanks'])} 个）")
     return 0
 
@@ -549,8 +595,12 @@ def cmd_remove_item(args):
     import shutil
     d = item_dir(Path(args.exam_dir), args.item)
     ann = read_json(d / "annotations.json", "annotations.json", default={})
-    if isinstance(ann.get("annotations"), list) and ann["annotations"] and not args.yes:
-        fail(f"{d.name} 中存在 {len(ann['annotations'])} 条批注，删除不可恢复；确认后加 --yes")
+    anns = ann.get("annotations") if isinstance(ann, dict) else None
+    # 批注为空 = annotations 数组存在且为空；结构异常（字段名不对等）一律按“有内容”保护
+    has_content = not isinstance(anns, list) or len(anns) > 0
+    if has_content and not args.yes:
+        count = len(anns) if isinstance(anns, list) else "未知（annotations.json 结构异常）"
+        fail(f"{d.name} 中存在批注（{count}），删除不可恢复；确认后加 --yes")
     shutil.rmtree(d)
     print(f"已删除试题组 {d.name}")
     return 0
@@ -575,7 +625,7 @@ def cmd_remove_blank(args):
     if len(remaining) == len(blanks):
         fail(f"{d.name}: 没有空位 {args.label}（现有: {[b.get('label') for b in blanks]}）")
     q["blanks"] = remaining
-    save_item(d, load_meta(d), questions_with(d, q))
+    save_item(d, refresh_passage_meta(load_meta(d), q), questions_with(d, q))
     print(f"  ✓ 已删除 {d.name} 空位 {args.label}（剩 {len(remaining)} 个）")
     return 0
 

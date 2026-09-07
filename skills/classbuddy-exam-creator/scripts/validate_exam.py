@@ -90,6 +90,12 @@ def get_blank_labels(passage, item: str, qid: str) -> list[str] | None:
     if not labels:
         err(item, f"{qid}: passage 中没有任何 {{{{blank:题号}}}} 标记")
         return None
+    bad = [m for m in labels if not m.isdigit()]
+    if bad:
+        err(item, f"{qid}: passage 中的题号必须是纯数字: {bad}（如 {{{{blank:36}}}}）")
+    dups = sorted({m for m in labels if labels.count(m) > 1})
+    if dups:
+        err(item, f"{qid}: passage 中的题号标记必须唯一，重复: {dups}")
     return labels
 
 
