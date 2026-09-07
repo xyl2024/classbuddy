@@ -105,7 +105,12 @@ function collectTextNodes(root: HTMLElement, excludeSelector?: string) {
   return nodes;
 }
 
-const uid = () => crypto.randomUUID();
+/** 生成标注/画笔 id。crypto.randomUUID 仅在安全上下文(HTTPS/localhost)可用，
+ * 普通 HTTP 部署下会为 undefined，这里用 getRandomValues 兜底生成随机串。 */
+const uid = () =>
+  typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : (crypto.getRandomValues(new Uint32Array(4)).join('-') + Date.now().toString(36));
 
 /**
  * 可批注滚动面板：画布笔迹、文本高亮/划线（CSS Custom Highlight API）、
