@@ -292,7 +292,11 @@ let previousSignature = '';
 watcher = setInterval(async () => { const signature = await fs.stat(dataDir).then((s) => `${s.mtimeMs}`).catch(() => ''); if (previousSignature && signature !== previousSignature) for (const client of clients) client.write(`data: ${JSON.stringify({ type: 'files-changed' })}\n\n`); previousSignature = signature; }, 1000);
 
 if (process.env.NODE_ENV !== 'production') { const { createServer } = await import('vite'); const vite = await createServer({ server: { middlewareMode: true }, appType: 'spa' }); app.use(vite.middlewares); }
-else app.use(express.static(path.join(root, 'dist')));
-app.use((_req, res) => res.sendFile(path.join(root, 'index.html')));
+else {
+  // 生产环境：先伺服 dist 静态资源，其余 GET 一律回退到打包产物入口，保证深层路由刷新可用
+  const distDir = path.join(root, 'dist');
+  app.use(express.static(distDir));
+  app.use((_req, res) => res.sendFile(path.join(distDir, 'index.html')));
+}
 app.listen(port, () => console.log(`英语试题讲解工具: http://localhost:${port}  数据目录: ${dataDir}`));
 process.on('SIGINT', () => { if (watcher) clearInterval(watcher); process.exit(0); });
