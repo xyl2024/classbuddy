@@ -164,8 +164,8 @@ export interface ItemData {
   annotations: AnnotationsFile;
 }
 
-/** 批注工具 */
-export type Tool = 'select' | 'freehand' | 'eraser';
+/** 批注工具（laser 为临时激光笔迹，不写入批注、不保存） */
+export type Tool = 'select' | 'freehand' | 'eraser' | 'laser';
 
 /** 当前选中的试题组（考试集 id + 试题组 id） */
 export interface Selected {

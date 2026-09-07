@@ -1,11 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react';
-import { ChevronLeft, ChevronRight, Eraser, Highlighter, House, MousePointer2, PenLine, Redo2, Trash2, Underline, Undo2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Eraser, Highlighter, House, MousePointer2, PenLine, Redo2, Trash2, Underline, Undo2, Zap } from 'lucide-react';
 import type { Annotation, AnnotationTarget, Exam, Tool } from '../types';
 import { ItemDropdown } from './ItemDropdown';
 
 const ERASER_HIT_RADIUS = 14;
+
+/** 激光笔：红色临时尾迹，随绘制结束后逐渐消失（不落盘） */
+const LASER_COLOR = '#ff2e3f';
+/** 尾迹最长时间（毫秒）：超过该时长的点完全淡出 */
+const LASER_LIFETIME = 1000;
+/** 激光线宽 */
+const LASER_WIDTH = 2.5;
+/** 尾迹渐隐分层数：较新的点被更多层覆盖从而更亮，形成头亮尾暗的彗尾。
+ * 层数越多、单层透明度越低，淡出越细腻丝滑（头部累计约 0.9 亮度）。 */
+const LASER_PASSES = 24;
+const LASER_PASS_ALPHA = 0.093;
+/** 指针前端的光点半径 */
+const LASER_DOT_RADIUS = 3.2;
+/** 前端光点视为“刚画”并加亮的最近时长 */
+const LASER_DOT_FRESH = 150;
 
 /** 画笔可选颜色与粗细 */
 const PEN_COLORS = ['#2e6fdf', '#d05a4e', '#ef8c47', '#267b49', '#7a4fd0', '#233247'];
@@ -137,6 +152,12 @@ export function AnnotationSurface({
   const contentRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingPoints = useRef<[number, number][]>([]);
+  /** 激光：已完成但尚未淡出完的尾迹（画布坐标 + 每点时间戳） */
+  const laserHistory = useRef<{ xs: number[]; ys: number[]; ts: number[] }[]>([]);
+  /** 激光：正在绘制的当前笔迹 */
+  const laserActive = useRef<{ xs: number[]; ys: number[]; ts: number[] } | null>(null);
+  /** 激光动画帧 id（非空表示渲染循环在跑） */
+  const laserRaf = useRef<number | null>(null);
   /** 当前按住的活动触点（pointerId → 视口坐标），用于检测双指滚动手势 */
   const activePointers = useRef<Map<number, { x: number; y: number }>>(new Map());
   /** 是否处于多点滚动手势：期间不绘制、不擦除，仅驱动滚动 */
@@ -187,6 +208,80 @@ export function AnnotationSurface({
     strokePath(ctx, points);
   }, [draw, penColor, penWidth]);
 
+  /** 在画布上按当前时刻重绘激光尾迹（调用前应已调用 draw() 清底并画好持久批注） */
+  const paintLaser = useCallback((now: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d')!;
+    const dpr = window.devicePixelRatio || 1;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // 统一用红色激光（draw() 清底后 strokeStyle 可能残留上一次笔色）
+    ctx.strokeStyle = LASER_COLOR;
+    ctx.lineWidth = LASER_WIDTH;
+    ctx.fillStyle = LASER_COLOR;
+    const tracks: { xs: number[]; ys: number[]; ts: number[] }[] = [];
+    if (laserActive.current) tracks.push(laserActive.current);
+    for (const t of laserHistory.current) tracks.push(t);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    for (const tr of tracks) {
+      const n = tr.xs.length;
+      if (!n) continue;
+      const headAge = now - tr.ts[n - 1];
+      if (headAge >= LASER_LIFETIME) continue; // 整体已淡出
+      let start = 0;
+      while (start < n && now - tr.ts[start] > LASER_LIFETIME) start++;
+      // 分层叠加：每层从头部往更旧的方向延伸一段并淡一点，较新的点被更多层覆盖 → 头亮尾暗
+      for (let pass = 1; pass <= LASER_PASSES; pass++) {
+        const limitAge = (LASER_LIFETIME * pass) / LASER_PASSES;
+        let beg = start;
+        while (beg < n && now - tr.ts[beg] >= limitAge) beg++;
+        if (beg >= n - 1) continue; // 该层不足两个点，跳过
+        ctx.globalAlpha = LASER_PASS_ALPHA;
+        ctx.beginPath();
+        ctx.moveTo(tr.xs[beg], tr.ys[beg]);
+        for (let i = beg + 1; i < n; i++) ctx.lineTo(tr.xs[i], tr.ys[i]);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      // 最前端的光点：刚绘制的部分用一个实心红点亮起，随画笔移动形成“光标”
+      if (headAge < LASER_DOT_FRESH) {
+        ctx.beginPath();
+        ctx.arc(tr.xs[n - 1], tr.ys[n - 1], LASER_DOT_RADIUS, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
+  }, []);
+
+  /** 启动激光淡出渲染循环（已在跑则不重复）；画面停止后循环自停 */
+  const ensureLaserRender = useCallback(() => {
+    if (laserRaf.current != null) return;
+    const step = () => {
+      laserRaf.current = null;
+      const now = performance.now();
+      // 丢弃已完全淡出的历史尾迹
+      const keep = laserHistory.current.filter((t) => t.ts.length > 0 && now - t.ts[t.ts.length - 1] < LASER_LIFETIME);
+      laserHistory.current = keep;
+      if (laserActive.current || keep.length) {
+        draw();
+        paintLaser(now);
+        laserRaf.current = requestAnimationFrame(step);
+      } else {
+        draw(); // 最后一帧清掉残留
+      }
+    };
+    laserRaf.current = requestAnimationFrame(step);
+  }, [draw, paintLaser]);
+
+  /** 结束当前激光笔迹，送入淡出队列继续渲染 */
+  const finalizeLaser = useCallback(() => {
+    if (!laserActive.current) return;
+    laserHistory.current.push(laserActive.current);
+    laserActive.current = null;
+    ensureLaserRender();
+  }, [ensureLaserRender]);
+
   /** 画布尺寸跟随面板尺寸（隐藏画布后再测量，避免画布自身撑大 scrollHeight 的反馈） */
   const resizeCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -218,6 +313,25 @@ export function AnnotationSurface({
   useEffect(() => {
     draw();
   }, [draw]);
+
+  /** 切换到非激光工具时清空残留的临时尾迹并停止动画；卸载时取消未完成的帧 */
+  useEffect(() => {
+    if (tool !== 'laser') {
+      laserHistory.current = [];
+      laserActive.current = null;
+      if (laserRaf.current != null) {
+        cancelAnimationFrame(laserRaf.current);
+        laserRaf.current = null;
+      }
+      draw();
+    }
+    return () => {
+      if (laserRaf.current != null) {
+        cancelAnimationFrame(laserRaf.current);
+        laserRaf.current = null;
+      }
+    };
+  }, [tool, draw]);
 
   /** 用 CSS Custom Highlight API 渲染文本高亮与划线；可传入临时列表用于擦除预览 */
   const applyHighlights = useCallback((list: Annotation[] = annotations) => {
@@ -347,6 +461,7 @@ export function AnnotationSurface({
 
     // 第二根（及以上）手指落下：丢弃第一指尚未提交的半成品，切到双指滚动
     if (activePointers.current.size >= 2) {
+      finalizeLaser();
       multiScroll.current = true;
       scrollCentroidY.current = null;
       drawingPoints.current = [];
@@ -358,7 +473,13 @@ export function AnnotationSurface({
       return;
     }
 
-    // 单指：开始绘制或擦除
+    // 单指：开始绘制、画激光或擦除
+    if (tool === 'laser') {
+      const p = toCanvasPoint(e);
+      laserActive.current = { xs: [p[0]], ys: [p[1]], ts: [performance.now()] };
+      ensureLaserRender();
+      return;
+    }
     const p = toCanvasPoint(e);
     if (tool === 'freehand') {
       drawingPoints.current = [p];
@@ -385,6 +506,14 @@ export function AnnotationSurface({
     }
     if (multiScroll.current) return;
 
+    if (tool === 'laser' && laserActive.current) {
+      const p = toCanvasPoint(e);
+      laserActive.current.xs.push(p[0]);
+      laserActive.current.ys.push(p[1]);
+      laserActive.current.ts.push(performance.now());
+      ensureLaserRender();
+      return;
+    }
     if (tool === 'eraser' && erasing.current) {
       eraseAt(toCanvasPoint(e));
       return;
@@ -408,7 +537,11 @@ export function AnnotationSurface({
       return;
     }
 
-    // 单指结束：提交笔迹或擦除结果
+    // 单指结束：提交笔迹或擦除结果；激光送入淡出队列
+    if (tool === 'laser') {
+      finalizeLaser();
+      return;
+    }
     if (tool === 'eraser') {
       erasing.current = false;
       const removed = erasePreview.current;
@@ -431,6 +564,7 @@ export function AnnotationSurface({
     } catch {
       /* 捕获可能已丢失，忽略 */
     }
+    finalizeLaser();
     if (activePointers.current.size >= 2) {
       // 仍有两指：保持滚动态，重建质心基准
       scrollCentroidY.current = null;
@@ -673,9 +807,10 @@ export function AnnotationToolbar({
       </span>
       <span className="pen-sep" />
       <button className={tool === 'select' ? 'selected' : ''} onClick={() => onToolChange('select')}><MousePointer2 size={14} /></button>
-      <button className={tool === 'freehand' ? 'selected' : ''} onClick={() => onToolChange('freehand')}><PenLine size={14} /></button>
+      <button className={tool === 'freehand' ? 'selected' : ''} onClick={() => onToolChange('freehand')} title="画笔"><PenLine size={14} /></button>
+      <button className={tool === 'laser' ? 'selected' : ''} onClick={() => onToolChange('laser')} title="激光笔（笔迹自动淡出）"><Zap size={14} /></button>
       <button className={tool === 'eraser' ? 'selected' : ''} onClick={() => onToolChange('eraser')}><Eraser size={14} /></button>
-      <span className="pen-options">
+      <span className="pen-options" style={tool === 'laser' ? { display: 'none' } : undefined}>
         {PEN_COLORS.map((c) => (
           <button
             key={c}
@@ -698,6 +833,7 @@ export function AnnotationToolbar({
         </span>
       </span>
       <div className="foot-actions">
+        {tool === 'laser' && <span className="laser-hint">红色激光，笔迹自动淡出</span>}
         <button onClick={onUndo} disabled={!canUndo}><Undo2 size={14} /></button>
         <button onClick={onRedo} disabled={!canRedo}><Redo2 size={14} /></button>
         <button className="danger" onClick={onClear}><Trash2 size={14} /></button>
