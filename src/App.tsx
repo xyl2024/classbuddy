@@ -66,17 +66,6 @@ export default function App() {
     return map;
   }, [passageQuestion, gapRevealed]);
 
-  /** 语法填空：空槽内的括号提示词 */
-  const blankHints = useMemo(() => {
-    const map: Record<string, string> = {};
-    if (passageQuestion?.type === 'grammar-fill') {
-      for (const b of passageQuestion.blanks) {
-        if (b.hint) map[b.label] = b.hint;
-      }
-    }
-    return map;
-  }, [passageQuestion]);
-
   /** 语法填空答案为单词而非选项 key，空槽用固定色而非选项配色 */
   const blankColorKeys = passageQuestion?.type !== 'grammar-fill';
 
@@ -199,8 +188,8 @@ export default function App() {
                 material={materialOf(data)}
                 blankSlots={data.meta.sectionType === 'gap-fill' || data.meta.sectionType === 'cloze' || data.meta.sectionType === 'grammar-fill'}
                 blankReveals={blankReveals}
-                blankHints={blankHints}
                 blankColorKeys={blankColorKeys}
+                onBlankClick={(label) => setGapRevealed((s) => ({ ...s, [label]: !s[label] }))}
                 title={data.meta.name || selected.item}
                 annotations={splitAnnotations('material')}
                 onCommit={(next) => commitFor('material', next)}

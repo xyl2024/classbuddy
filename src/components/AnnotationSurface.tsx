@@ -404,7 +404,7 @@ export function AnnotationSurface({
         const rect = a && annotationRect(hitId, annotations);
         if (a && rect) setNoteEditor({ id: hitId, x: rect.left + rect.width / 2, y: rect.top, value: a.note ?? '' });
       } else {
-        setNoteEditor(null);
+        saveNote();
         suppressClick.current = false;
       }
       return;
@@ -456,13 +456,15 @@ export function AnnotationSurface({
     setSelPopup(null);
   };
 
-  /** 保存笔记到对应文本批注；留空则清除笔记 */
+  /** 保存笔记到对应文本批注；留空则清除笔记（点击弹层外部或滚动时也会自动保存） */
   const saveNote = () => {
     if (!noteEditor) return;
     const note = noteEditor.value.trim();
     onCommit(annotations.map((a) => (a.id === noteEditor.id ? { ...a, note: note || undefined } : a)));
     setNoteEditor(null);
   };
+  /** 直接关闭笔记弹层，不保存（取消/Esc） */
+  const discardNote = () => setNoteEditor(null);
 
   return (
     <>
@@ -475,7 +477,7 @@ export function AnnotationSurface({
         onMouseUp={onMouseUp}
         onMouseMove={onMouseMove}
         onClickCapture={onClickCapture}
-        onScroll={() => { setSelPopup(null); setNoteEditor(null); }}
+        onScroll={() => { setSelPopup(null); saveNote(); }}
       >
         <div ref={contentRef} className="surface-content">
           {children}
@@ -500,21 +502,22 @@ export function AnnotationSurface({
         </div>
       )}
       {noteEditor && (
-        <div className="note-popup" style={{ left: noteEditor.x, top: noteEditor.y }}>
+        <div className="note-popup" style={{ left: noteEditor.x, top: noteEditor.y }} onMouseDown={(e) => e.stopPropagation()} onMouseUp={(e) => e.stopPropagation()}>
           <textarea
             autoFocus
+            onFocus={(e) => e.target.setSelectionRange(e.target.value.length, e.target.value.length)}
             placeholder="填写笔记…"
             value={noteEditor.value}
             onChange={(e) => setNoteEditor({ ...noteEditor, value: e.target.value })}
+            ref={(el) => {
+              if (!el) return;
+              el.style.height = 'auto';
+              el.style.height = `${el.scrollHeight}px`;
+            }}
             onKeyDown={(e) => {
-              if (e.key === 'Escape') setNoteEditor(null);
-              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) saveNote();
+              if (e.key === 'Escape') discardNote();
             }}
           />
-          <div className="note-actions">
-            <button onClick={() => setNoteEditor(null)}>取消</button>
-            <button className="primary" onClick={saveNote}>保存</button>
-          </div>
         </div>
       )}
     </>
@@ -576,31 +579,29 @@ export function AnnotationToolbar({
       <span className="pen-sep" />
       <button className={tool === 'select' ? 'selected' : ''} onClick={() => onToolChange('select')}><MousePointer2 size={14} /></button>
       <button className={tool === 'freehand' ? 'selected' : ''} onClick={() => onToolChange('freehand')}><PenLine size={14} /></button>
-      {tool === 'freehand' && (
-        <span className="pen-options">
-          {PEN_COLORS.map((c) => (
-            <button
-              key={c}
-              className={`pen-color${penColor === c ? ' selected' : ''}`}
-             
-              onClick={() => onPenColorChange(c)}
-            >
-              <i style={{ background: c }} />
-            </button>
-          ))}
-          <span className="pen-sep" />
-          <span className="pen-width-ctl">
-            <input
-              type="range"
-              min={1}
-              max={12}
-              value={penWidth}
-              onChange={(e) => onPenWidthChange(Number(e.target.value))}
-            />
-          </span>
-        </span>
-      )}
       <button className={tool === 'eraser' ? 'selected' : ''} onClick={() => onToolChange('eraser')}><Eraser size={14} /></button>
+      <span className="pen-options">
+        {PEN_COLORS.map((c) => (
+          <button
+            key={c}
+            className={`pen-color${penColor === c ? ' selected' : ''}`}
+           
+            onClick={() => onPenColorChange(c)}
+          >
+            <i style={{ background: c }} />
+          </button>
+        ))}
+        <span className="pen-sep" />
+        <span className="pen-width-ctl">
+          <input
+            type="range"
+            min={1}
+            max={12}
+            value={penWidth}
+            onChange={(e) => onPenWidthChange(Number(e.target.value))}
+          />
+        </span>
+      </span>
       <div className="foot-actions">
         <button onClick={onUndo} disabled={!canUndo}><Undo2 size={14} /></button>
         <button onClick={onRedo} disabled={!canRedo}><Redo2 size={14} /></button>

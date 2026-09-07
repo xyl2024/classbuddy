@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Eye, EyeOff, RotateCcw } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { AnnotationSurface } from './AnnotationSurface';
 import type { Annotation, ClozeQuestion, DialogueChoiceQuestion, GapFillQuestion, GrammarFillQuestion, Question, QuestionOption, Tool, WritingQuestion } from '../types';
 import { optionColor } from '../optionColors';
@@ -159,14 +159,6 @@ function GapFillCard({
         </b>
         <span className="gap-actions">
           <button
-            className="gap-reset"
-            onClick={() => onSetAll(false)}
-            title="收起全部答案"
-            aria-label="收起全部答案"
-          >
-            <RotateCcw size={13} />
-          </button>
-          <button
             onClick={() => onSetAll(!groupRevealed)}
             title={groupRevealed ? '隐藏全部答案' : '预览全部答案'}
             aria-label={groupRevealed ? '隐藏全部答案' : '预览全部答案'}
@@ -267,17 +259,6 @@ function ClozeCard({
         </b>
         <span className="gap-actions">
           <button
-            className="gap-reset"
-            onClick={() => {
-              setPicked({});
-              onSetAll(false);
-            }}
-            title="收起全部答案"
-            aria-label="收起全部答案"
-          >
-            <RotateCcw size={13} />
-          </button>
-          <button
             onClick={() => onSetAll(!groupRevealed)}
             title={groupRevealed ? '隐藏全部答案' : '预览全部答案'}
             aria-label={groupRevealed ? '隐藏全部答案' : '预览全部答案'}
@@ -353,9 +334,6 @@ function GrammarFillCard({
           {firstLabel !== lastLabel ? `–${lastLabel}` : ''}题 · 语法填空
         </b>
         <span className="gap-actions">
-          <button className="gap-reset" onClick={() => onSetAll(false)} title="收起全部答案" aria-label="收起全部答案">
-            <RotateCcw size={13} />
-          </button>
           <button
             onClick={() => onSetAll(!groupRevealed)}
             title={groupRevealed ? '隐藏全部答案' : '预览全部答案'}

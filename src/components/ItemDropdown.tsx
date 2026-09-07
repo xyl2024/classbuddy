@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Check, ChevronDown, TriangleAlert } from 'lucide-react';
+import { ChevronDown, TriangleAlert } from 'lucide-react';
 import type { Exam } from '../types';
 
 interface ItemDropdownProps {
@@ -50,7 +50,6 @@ export function ItemDropdown({ items, value, onSelect }: ItemDropdownProps) {
                   setOpen(false);
                 }}
               >
-                <Check size={13} className="item-dropdown-check" />
                 <span className="item-dropdown-label">{item.name}</span>
                 {!item.valid && <span className="item-dropdown-warn-wrap"><TriangleAlert size={12} className="item-dropdown-warn" /></span>}
               </button>

@@ -63,7 +63,7 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}
 /* 画笔：渐变铅笔光标，橡皮擦：斜置板擦光标，热点均对准操作端 */
 .material-scroll.tool-freehand,.questions-scroll.tool-freehand{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cdefs%3E%3ClinearGradient id='b' x1='0' y1='1' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%235b95e8'/%3E%3Cstop offset='.5' stop-color='%232e6fdf'/%3E%3Cstop offset='1' stop-color='%231d4fa8'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M3.6 15.4 8.6 20.4 20.5 8.5a2.6 2.6 0 0 0 0-3.7l-1.3-1.3a2.6 2.6 0 0 0-3.7 0L3.6 15.4z' fill='url(%23b)' stroke='%23164a94' stroke-width='1'/%3E%3Cpath d='M7.4 13.4 16.4 4.4' stroke='%23fff' stroke-opacity='.55' stroke-width='1.4' stroke-linecap='round' fill='none'/%3E%3Cpath d='M1 23l2.6-7.6 5 5L1 23z' fill='%23f8c88c' stroke='%23164a94' stroke-width='1'/%3E%3Cpath d='M1 23l1.2-3.4 2.2 2.2L1 23z' fill='%23444'/%3E%3C/svg%3E") 1 23, crosshair}
 .material-scroll.tool-eraser,.questions-scroll.tool-eraser{cursor:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cdefs%3E%3ClinearGradient id='e' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop offset='0' stop-color='%237db4f2'/%3E%3Cstop offset='1' stop-color='%232e6fdf'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cg transform='rotate(-45 12 12)'%3E%3Crect x='7.5' y='8.5' width='10.5' height='7' rx='1.2' fill='url(%23e)' stroke='%23164a94'/%3E%3Crect x='3' y='8.5' width='4.5' height='7' rx='1.2' fill='%23f7a6b8' stroke='%23c96a80'/%3E%3Cline x1='8.8' y1='10.2' x2='16.5' y2='10.2' stroke='%23fff' stroke-opacity='.45' stroke-width='1.2' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E") 6 18, crosshair}
-.markdown{position:relative;z-index:1;max-width:min(760px,100%);font-family:Georgia,serif;font-size:17px;line-height:1.85;color:#364659;overflow-wrap:break-word;word-break:break-word}
+.markdown{position:relative;z-index:1;max-width:min(760px,100%);font-family:Georgia,serif;font-size:19px;line-height:1.85;color:#364659;overflow-wrap:break-word;word-break:break-word}
 .markdown h1,.markdown h2,.markdown h3{font-family:'Playfair Display',serif;color:#233247;line-height:1.3}
 .markdown blockquote{border-left:3px solid #83aeea;padding-left:16px;color:#718096}
 .markdown img{max-width:100%}
@@ -83,7 +83,7 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}
 /* 点击高亮/划线内容后弹出的笔记编辑器 */
 /* 点击高亮/划线内容后弹出的笔记编辑器 */
 .note-popup{position:fixed;transform:translate(-50%,calc(-100% - 10px));width:280px;background:#fff;border:1px solid #e8edf3;border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:6px;box-shadow:0 8px 24px #18263826;z-index:31}
-.note-popup textarea{width:100%;min-height:64px;resize:vertical;border:1px solid #dfe5ec;border-radius:8px;background:#f7f9fc;color:#233247;padding:7px 9px;font:inherit;font-size:13px;box-sizing:border-box}
+.note-popup textarea{width:100%;min-height:2.6em;resize:none;overflow:hidden;border:none;border-radius:8px;background:#f7f9fc;color:#233247;padding:7px 9px;font:inherit;font-size:13px;box-sizing:border-box;outline:none}
 .note-popup textarea:focus{outline:none;border-color:#8db4e8;background:#fff}
 .note-popup .note-actions{display:flex;gap:6px;justify-content:flex-end}
 .note-popup button{font-size:11px;color:#6a7686;padding:4px 9px;border-radius:6px}
@@ -149,12 +149,10 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}
 .item-dropdown-caret.up{transform:rotate(180deg)}
 .item-dropdown-menu{position:absolute;bottom:calc(100% + 6px);left:0;width:100%;background:#fff;border:1px solid #e8edf3;border-radius:10px;padding:4px;box-shadow:0 8px 24px #18263826;z-index:40;animation:dropdown-in .12s ease-out}
 @keyframes dropdown-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
-.item-dropdown-item{display:flex;width:100%;align-items:center;gap:6px;font-size:12.5px;color:#233247;text-align:left;padding:8px 10px;border-radius:7px}
+.item-dropdown-item{display:flex;width:100%;align-items:center;gap:6px;font-size:12.5px;color:#233247;text-align:center;padding:8px 10px;border-radius:7px}
 .item-dropdown-item:hover{background:#edf4ff;color:#3176d8}
 .item-dropdown-item.active{background:#eef5ff;color:#3075d7;font-weight:600}
-.item-dropdown-check{flex-shrink:0;visibility:hidden}
-.item-dropdown-item.active .item-dropdown-check{visibility:visible}
-.item-dropdown-item .item-dropdown-label{flex:1;min-width:0}
+.item-dropdown-item .item-dropdown-label{flex:1;min-width:0;text-align:center}
 /* 画笔颜色与粗细内联设置 */
 .pen-options{display:inline-flex;align-items:center;gap:3px;padding-left:8px;margin-left:4px;border-left:1px solid #edf0f4}
 .pen-options button{width:24px;height:30px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px}
@@ -173,9 +171,9 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}
 .questions{padding:8px 30px 24px}
 .question{padding:18px 4px;border-bottom:1px solid #edf0f4}
 .q-title{display:grid;grid-template-columns:1fr auto;gap:9px;align-items:start}
-.q-title b{font-size:16px;line-height:1.5}
+.q-title b{font-size:18px;line-height:1.5}
 .q-title button{font-size:11px;color:#397bd9;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;margin-top:2px}
-.dialogue{display:flex;flex-direction:column;gap:5px;margin:15px 0 4px;padding:4px 8px;font-family:Georgia,serif;color:#364659;font-size:15px;line-height:1.8}
+.dialogue{display:flex;flex-direction:column;gap:5px;margin:15px 0 4px;padding:4px 8px;font-family:Georgia,serif;color:#364659;font-size:17px;line-height:1.8}
 .dialogue-line{display:flex;align-items:baseline;overflow-wrap:anywhere}
 .dialogue-mark{flex:0 0 auto;margin-right:4px;color:#233247}
 .dialogue-text{min-width:0}
@@ -184,9 +182,8 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}
 .dialogue-fallback{margin:8px 0 0;color:#c0392b;font-size:11px}
 
 /* 选句填空（选句填空）：材料区内的题号空槽，预览后同步显示答案 */
-.markdown .material-blank{display:inline-flex;align-items:center;justify-content:center;min-width:56px;height:1.3em;margin:0 4px;padding:0 8px;border:1px dashed #397bd9;border-radius:6px;background:#f4f8fe;color:#397bd9;font-size:13px;vertical-align:baseline;font-family:inherit}
-.markdown .material-blank.filled{border-style:solid}
-.markdown .material-blank.filled b{font-weight:700;margin-left:2px}
+.markdown .material-blank{display:inline;cursor:pointer;margin:0 2px;padding:0 2px;border-bottom:1.5px solid #1a1a1a;color:inherit;font-weight:400;font-size:inherit;vertical-align:baseline;font-family:inherit}
+.markdown .material-blank b{font-weight:700;margin-left:6px}
 .gap-actions{display:inline-flex;align-items:center;gap:6px;margin-top:2px}
 .gap-reset{font-size:11px;color:#8a94a3}
 .gap-reset:hover{color:#c0392b}
@@ -198,22 +195,21 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}
 .gap-options .option:hover{background:transparent}
 .gap-blank-row{padding:8px 10px;border-radius:8px}
 .gap-blank-head{display:flex;align-items:center;gap:10px}
-.gap-blank-head b{font-size:13px;color:#34455c}
+.gap-blank-head b{font-size:14.5px;color:#34455c}
 .gap-blank-head button{margin-left:auto;font-size:11px;color:#397bd9;display:inline-flex;align-items:center}
 /* 语法填空：提示词与逐空行 */
 .grammar-hint{font-size:12px;color:#8a94a3;font-style:italic}
 .grammar-fill-question .gap-blank-row{border:1px solid #eef1f5}
 .markdown .material-blank i{font-style:italic;opacity:.7;margin-left:2px}
-.markdown .material-blank.word{color:#267b49}
 .gap-blank-row .explanation{margin:8px 0 0}
 /* 书面表达：题干、要点与作文纸 */
-.writing-prompt{white-space:pre-wrap;font-size:13.5px;line-height:1.7;color:#34455c}
-.writing-points{margin:10px 0 0 4px;padding-left:18px;color:#5a6a7e;font-size:13px;line-height:1.8}
+.writing-prompt{white-space:pre-wrap;font-size:15px;line-height:1.7;color:#34455c}
+.writing-points{margin:10px 0 0 4px;padding-left:18px;color:#5a6a7e;font-size:14.5px;line-height:1.8}
 .writing-sheet{margin:14px 0 0;padding:14px;border:1px solid #e6eaf0;border-radius:10px;background:#fbfcfe}
-.writing-greeting,.writing-closing{font-family:Georgia,serif;font-size:14px;color:#34455c;line-height:1.6}
+.writing-greeting,.writing-closing{font-family:Georgia,serif;font-size:16px;color:#34455c;line-height:1.6}
 .writing-closing{white-space:pre-wrap}
 .writing-lines{min-height:196px;background:repeating-linear-gradient(transparent,transparent 27px,#dfe5ee 27px,#dfe5ee 28px)}
-.writing-sample{font-family:Georgia,serif;font-size:14px;line-height:28px;color:#1f3a5f;white-space:pre-wrap}
+.writing-sample{font-family:Georgia,serif;font-size:16px;line-height:30px;color:#1f3a5f;white-space:pre-wrap}
 /* 完形填空：逐空独立选项 */
 .cloze-question .gap-blank-row{border:1px solid #eef1f5}
 .cloze-options .options{margin:8px 0 0}
@@ -221,7 +217,7 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}
 .options{display:grid;gap:7px;margin:14px 0 0 4px}
 .dialogue-question .options{display:flex;flex-wrap:wrap;gap:14px 28px;margin-left:4px}
 .dialogue-question .option{flex:0 0 auto;min-width:150px}
-.option{display:flex;gap:8px;padding:9px;border-radius:7px;font-size:15px;line-height:1.4}
+.option{display:flex;gap:8px;padding:9px;border-radius:7px;font-size:17px;line-height:1.4}
 .option b{color:#7e8a99}
 .option.correct{background:#eaf7ef;color:#267b49}
 .option.correct b{color:#267b49}
@@ -229,8 +225,8 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}
 .option:hover{background:#f1f4f8}
 .option.wrong{background:#fdecec;color:#c0392b}
 .option.wrong b{color:#c0392b}
-.explanation{margin:10px 0 0 37px;padding:12px;background:#fff8e9;border:1px solid #f8e7b7;border-radius:8px;font-size:14px;color:#765c21}
-.explanation p{margin:7px 0 0;line-height:1.6;font-size:13px}
+.explanation{margin:10px 0 0 37px;padding:12px;background:#fff8e9;border:1px solid #f8e7b7;border-radius:8px;font-size:15px;color:#765c21}
+.explanation p{margin:7px 0 0;line-height:1.6;font-size:14px}
 
 /* 空状态与提示 */
 .empty{margin:auto;text-align:center;color:#a1acb9}
