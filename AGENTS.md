@@ -24,6 +24,19 @@ NODE_ENV=production npm run start -- --port 3000
 NODE_ENV=production npm run start -- --port 3000 --auth user:pass
 ```
 
+## Docker 一键部署
+
+项目内置 `Dockerfile`、`compose.yaml`（及 `.dockerignore`），可在服务器上一键启动：
+
+```bash
+# 构建镜像并启动（NODE_ENV 已在镜像内设为 production）
+docker compose up -d --build
+```
+
+- 默认映射 `3000:3000`（改端口改 compose 左侧即可）；静态资源由后端在容器内直接伺服。
+- 试卷与批注数据持久化到命名卷 `classbuddy-data`（容器内 `/data`），重启不丢。
+- 鉴权通过环境变量 `CLASSBUDDY_AUTH=user:pass` 设置，留空则关闭；健康检查探活 `/api/health`。
+
 每次修改 TypeScript、React 或服务端代码后，至少执行 `npm run build` 验证类型检查和生产构建。
 
 ## 目录结构

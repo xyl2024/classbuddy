@@ -1,0 +1,30 @@
+services:
+  classbuddy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: classbuddy:latest
+    container_name: classbuddy
+    restart: unless-stopped
+    # 宿主机端口可由环境变量 HOST_PORT 覆盖（默认 3000），容器内部固定 3000
+    ports:
+      - "${HOST_PORT:-3000}:3000"
+    environment:
+      # 生产模式：后端直接伺服 dist/ 静态资源
+      - NODE_ENV=production
+      # 写接口 Basic Auth（格式 user:pass），可用环境变量 CLASSBUDDY_AUTH 覆盖
+      - CLASSBUDDY_AUTH=${CLASSBUDDY_AUTH:-}
+    volumes:
+      # 试卷与批注数据持久化到命名卷
+      - classbuddy-data:/data
+    healthcheck:
+      # 利用 Node 全局 fetch 探测健康接口（容器内固定 3000）
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    init: true
+
+volumes:
+  classbuddy-data:

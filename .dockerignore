@@ -1,0 +1,23 @@
+# 依赖与构建产物
+node_modules/
+dist/
+
+# 本地环境与日志
+.env
+.env.*
+*.log
+logs/
+.tmp/
+
+# 本地试卷数据（不打包进镜像，运行时通过卷挂载）
+data/
+
+# 版本控制与 IDE
+.git/
+.gitignore
+.vscode/
+.idea/
+.DS_Store
+*.pid
+coverage/
+README.md
