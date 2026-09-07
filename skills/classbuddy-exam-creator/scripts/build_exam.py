@@ -89,7 +89,7 @@ DEFAULT_SCORES = {
 DEFAULT_INSTRUCTIONS = {
     "situational-communication": "从下列各题所给的 A、B、C 和 D 项中选出最佳选项，补全对话。",
     "reading-comprehension": "阅读下列短文，掌握其大意，然后从每题所给的 A、B、C 和 D 项中选出最佳选项。",
-    "gap-fill": "从下列备选句子中选出能填入短文空缺处的最佳选项（如有多余选项请忽略）。",
+    "gap-fill": "从选项中选出可以填入空白处的最佳选项。",
     "cloze": "阅读下面短文，掌握其大意，然后从每题所给的 A、B、C 和 D 项中选出填入空格处的最佳选项。",
     "grammar-fill": "阅读下面短文，在空白处填入 1 个适当的单词或括号内单词的正确形式。",
     "writing": "根据提示完成书面表达。",
