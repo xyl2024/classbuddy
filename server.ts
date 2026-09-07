@@ -121,11 +121,14 @@ app.delete('/api/examinations/:exam', async (req, res) => {
   res.json({ ok: true });
 });
 
-/** 试题组字段校验：meta 为对象、material 为字符串、questions 为数组 */
+/** 试题组字段校验：meta 为对象、material 为字符串、questions 为数组；meta.name 必须是题型名 */
+const ALLOWED_ITEM_NAMES = ['情景交际', '阅读理解', '五选五', '完形填空', '语法填空', '书面表达'];
 const itemFieldErrors = (body: any) => {
   if (body.meta !== undefined && (typeof body.meta !== 'object' || body.meta === null || Array.isArray(body.meta))) return 'meta 必须是对象';
   if (body.material !== undefined && typeof body.material !== 'string') return 'material 必须是字符串（Markdown 文本）';
   if (body.questions !== undefined && !Array.isArray(body.questions)) return 'questions 必须是题目数组';
+  if (body.meta?.name !== undefined && !ALLOWED_ITEM_NAMES.includes(body.meta.name))
+    return `meta.name 必须是 ${ALLOWED_ITEM_NAMES.join('、')} 之一（不能带篇目、副标题等附加文字）`;
   return '';
 };
 

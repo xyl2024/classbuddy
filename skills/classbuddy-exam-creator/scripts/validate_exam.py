@@ -16,6 +16,8 @@ SECTION_TYPES = {
     "situational-communication", "reading-comprehension",
     "gap-fill", "cloze", "grammar-fill", "writing",
 }
+# 试题组 name 必须是且仅是这些题型名（材料卡片/题目卡片标题直接展示 name）
+ALLOWED_ITEM_NAMES = {"情景交际", "阅读理解", "五选五", "完形填空", "语法填空", "书面表达"}
 REQUIRED_FILES = ["meta.json", "material.md", "questions.json", "annotations.json"]
 BLANK_RE = re.compile(r"\{\{blank:(\w+)\}\}")
 DIALOGUE_BLANK_RE = re.compile(r"\{\{blank\}\}")
@@ -240,6 +242,8 @@ def main() -> int:
         if isinstance(meta_i, dict):
             if not (isinstance(meta_i.get("name"), str) and meta_i["name"].strip()):
                 warn(item, "meta.json 缺少 name")
+            elif meta_i["name"].strip() not in ALLOWED_ITEM_NAMES:
+                err(item, f"meta.json name 必须是 {'/'.join(sorted(ALLOWED_ITEM_NAMES))} 之一，得到 {meta_i['name']!r}（不能带篇目、副标题等附加文字）")
             st = meta_i.get("sectionType")
             if st is not None and st not in SECTION_TYPES:
                 warn(item, f"未知 sectionType: {st!r}")

@@ -58,6 +58,13 @@ EXAM_ID_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$")
 AUTO_DESC_WRITING = "书面表达，含范文与点评"
 
 PASSAGE_TYPES = {"gap-fill", "cloze", "grammar-fill"}
+# 试题组 name 必须是且仅是这些题型名（材料卡片/题目卡片标题直接展示 name）
+ALLOWED_ITEM_NAMES = {"情景交际", "阅读理解", "五选五", "完形填空", "语法填空", "书面表达"}
+
+
+def check_item_name(name: str) -> None:
+    if name.strip() not in ALLOWED_ITEM_NAMES:
+        fail(f"--name 必须是 {'/'.join(sorted(ALLOWED_ITEM_NAMES))} 之一，得到 {name!r}（不能带篇目、副标题等附加文字，如“阅读理解 A — xxx”不合法）")
 QTYPE_TO_SECTION = {
     "choice": "reading-comprehension",
     "dialogue-choice": "situational-communication",
@@ -279,6 +286,7 @@ def cmd_push(args):
 # ---------- 试题组级命令 ----------
 
 def cmd_add_item(args):
+    check_item_name(args.name)
     exam_dir = Path(args.exam_dir)
     if not (exam_dir / "meta.json").is_file():
         fail(f"{exam_dir} 不是考试集目录（缺 meta.json），先 init")
@@ -325,6 +333,7 @@ def cmd_update_item(args):
     d = item_dir(Path(args.exam_dir), args.item)
     meta = load_meta(d)
     if args.name:
+        check_item_name(args.name)
         meta["name"] = args.name
     if args.type:
         meta["sectionType"] = args.type

@@ -36,14 +36,18 @@ description: 为 classbuddy（英语试题讲解工具）生成一套完整的�
 | 试题组 | 题型 | `sectionType` | 题量 | 全卷题号 | 主要子命令 |
 | --- | --- | --- | --- | --- | --- |
 | `item-1` | 情景交际 | `situational-communication` | 5 题 | 1–5 | `add-dialogue` ×5（待填台词写 `{{blank}}`） |
-| `item-2` | 阅读理解 A | `reading-comprehension` | 5 题 | 6–10 | `set-material` + `add-choice` ×5 |
-| `item-3` | 阅读理解 B | `reading-comprehension` | 5 题 | 11–15 | 同上 |
+| `item-2` | 阅读理解（A 篇） | `reading-comprehension` | 5 题 | 6–10 | `set-material` + `add-choice` ×5 |
+| `item-3` | 阅读理解（B 篇） | `reading-comprehension` | 5 题 | 11–15 | 同上 |
 | `item-4` | 五选五（选句填空） | `gap-fill` | 5 空 | 16–20 | `set-passage` → `gap-set-options`（5–7 备选句）→ `add-blank-gap` ×5 |
 | `item-5` | 完形填空 | `cloze` | 15 空 | 21–35 | `set-passage` → `add-blank-cloze` ×15（每空独立 4 选项） |
 | `item-6` | 语法填空 | `grammar-fill` | 10 空 | 36–45 | `set-passage` → `add-blank-grammar` ×10 |
 | `item-7` | 书面表达 | `writing` | 1 题 | 46 | `add-writing`（含范文与点评） |
 
 用户指定了不同的题量/题型组合时按用户的来，但保持"题号全卷连续"和各题型的字段规范。
+
+### 试题组 name 约束（schema）
+
+试题组 `meta.json` 的 `name` **必须是且只能是**：`情景交际`、`阅读理解`、`五选五`、`完形填空`、`语法填空`、`书面表达` 这六个词之一——它直接用作材料卡片和题目卡片的标题，**不能带篇目、副标题或任何附加文字**（如“阅读理解 A — The Quiet Strength of Lin Wei”不合法）。篇目区分（A/B 篇）写在材料正文首行标题或 `description` 里，不写进 name。`build_exam.py` 的 `add-item`/`update-item` 和校验脚本会强制执行此规则。
 
 ### 试题组目录（由命令自动维护，供了解）
 
@@ -60,7 +64,7 @@ item-N/
 
 ### 材料的写法
 
-- 阅读理解 A/B：**必须** `set-material` 写入完整文章正文（Markdown，可 `# A` / `# B` 开头）。文章是讲解时被批注的对象，不要把题目或答案混进去。
+- 阅读理解各篇：**必须** `set-material` 写入完整文章正文（Markdown，可 `# A` / `# B` 开头）。文章是讲解时被批注的对象，不要把题目或答案混进去。篇目区分（A/B）写在材料正文首行标题里，不写进试题组 name。
 - 五选五、完形、语法填空：短文用 `set-passage --passage` 写入（内嵌题目区展示），**绝不写进 material**（否则会错乱文本批注的偏移量）；material 由 `add-item` 自动写占位说明。
 - 情景交际、书面表达：单栏题型（无材料区），material 用自动占位说明即可。
 

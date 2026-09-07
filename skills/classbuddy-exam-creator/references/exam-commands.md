@@ -29,7 +29,7 @@ $B add-dialogue data/midterm-exam --item 1 \
   --answer C --explanation "对方致谢应回答 You're welcome。"
 
 # 3. 阅读理解（2 篇 × 5 题）：先写材料，再加题
-$B add-item data/midterm-exam --name "阅读理解 A" --type reading-comprehension
+$B add-item data/midterm-exam --name "阅读理解" --type reading-comprehension   # 第二篇再建 item 时同样用 --name "阅读理解"
 $B set-material data/midterm-exam --item 2 --material @/tmp/article-a.md
 $B add-choice data/midterm-exam --item 2 --question "Why is …?" \
   --opt "A=…" --opt "B=…" --opt "C=…" --opt "D=…" --answer B --explanation "定位句…。"
@@ -71,9 +71,9 @@ $B push data/midterm-exam [--url http://localhost:3000] [--force]
 | `list <examDir>` | 概览各试题组（题型、题数、空位进度） |
 | `validate <examDir>` | 结构校验（内部调 validate_exam.py） |
 | `push <examDir> [--url U] [--id ID] [--force]` | 校验后整体上传（等价于 classbuddy_api.py push-exam） |
-| `add-item <examDir> --name N [--type T] [--instruction I] [--description D] [--score-per-question X] [--total-score Y] [--material T]` | 新建 item-N（4 文件齐全；material 缺省写占位说明） |
+| `add-item <examDir> --name N [--type T] [--instruction I] [--description D] [--score-per-question X] [--total-score Y] [--material T]` | 新建 item-N（4 文件齐全；material 缺省写占位说明；--name 必须是六大题型名之一） |
 | `set-material <examDir> --item N --material T` | 写材料正文（阅读理解必做） |
-| `update-item <examDir> --item N [--name/--type/--instruction/--description/--score-per-question/--total-score]` | 改元数据 |
+| `update-item <examDir> --item N [--name/--type/--instruction/--description/--score-per-question/--total-score]` | 改元数据（--name 同样必须是六大题型名之一） |
 | `add-choice` | 阅读理解单选：`--question Q --opt K=T×4 --answer K [--explanation E]` |
 | `add-dialogue` | 情景交际：`--line "说话人\|台词"×n --opt K=T×4 --answer K` |
 | `add-writing` | 书面表达：`--prompt P [--greeting G] [--closing C] [--point P]×n [--sample S] [--comment C]` |
