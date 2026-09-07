@@ -23,6 +23,9 @@ const notifyChange = () => { for (const client of clients) client.write(`data: $
 const safe = (value: string) => value.split('/').every((part) => part && part !== '..' && part !== '.');
 const readJson = async (file: string, fallback: unknown) => { try { return JSON.parse(await fs.readFile(file, 'utf8')); } catch { return fallback; } };
 
+/** 健康探针：供脚本/部署探测服务是否存活 */
+app.get('/api/health', (_req, res) => res.json({ ok: true }));
+
 app.get('/api/examinations', async (_req, res) => {
   const exams: any[] = [];
   for (const examName of await fs.readdir(dataDir, { withFileTypes: true }).catch(() => [])) {

@@ -15,7 +15,7 @@ description: 为 classbuddy（英语试题讲解工具）生成一套完整的�
 2. **确认输出位置与考试集 id**：默认生成到 `data/<exam-id>/`（`data/` 已被 gitignore，适合本地测试）；如用户指定了目标目录，以用户为准。
 3. **搭建议**：把一整套 `build_exam.py` 命令写成一个 bash 脚本一次性执行（出错即停）；短文、材料正文、范文等长文本先写入临时文件（如 `/tmp/article-a.md`）再用 `@路径` 传参，短文本直接内联。
 4. **生成与校验**：按 `references/exam-commands.md` 的典型流程逐题组搭建（内容规范对照 `references/question-schemas.md`），完成后运行 `python3 <skill目录>/scripts/build_exam.py validate <考试集目录>`；有 errors 时用对应子命令修正（`remove-*` 删除后重加），直到 0 errors。
-5. **推送到服务**：若 classbuddy 服务正在运行（默认 `http://localhost:3000`），用 `build_exam.py push <考试集目录>`（等价于 `classbuddy_api.py push-exam`，服务端同名时加 `--force`）整体上传，页面会实时感知。
+5. **推送到服务**：先跑 `health` 探针确认 classbuddy 服务可达（默认 `http://localhost:3000`，不可达则提示用户启动服务并停止，不要继续推送），然后用 `build_exam.py push <考试集目录>`（等价于 `classbuddy_api.py push-exam`，服务端同名时加 `--force`）整体上传，页面会实时感知。
 6. **交付**：告诉用户考试集目录位置与推送结果，并提示可在首页查看。
 
 在开始生成前，先阅读 `references/exam-commands.md` 与 `references/question-schemas.md`，不要凭记忆编写。
@@ -112,6 +112,8 @@ python3 <skill目录>/scripts/build_exam.py validate <考试集目录>  # 结构
 ## 通过接口写入运行中的服务
 
 服务端（`server.ts`）提供试卷增删查改 HTTP 接口（详见 `docs/api.md`）；所有接口调用都通过 Python 脚本完成，不要手写 curl 或直接改服务端数据目录。
+
+- **连通性检查**：推送前先跑 `python3 <skill目录>/scripts/classbuddy_api.py health [--url URL]`，用 `/api/health` 探针确认服务可达；失败时提示用户先启动服务（`npm run dev`），不要盲目推送。
 
 - **一键上传**：`python3 <skill目录>/scripts/build_exam.py push <考试集目录> [--url URL] [--force]`（先自动校验再整体上传）。
 - 其余接口（查/改/删考试集与试题组）用 `scripts/classbuddy_api.py`，服务地址用 `--url` 或环境变量 `CLASSBUDDY_URL` 指定（默认 `http://localhost:3000`）。

@@ -89,8 +89,8 @@ def confirm(message: str, assume_yes: bool) -> bool:
 # ---- 命令实现 ----
 
 def cmd_health(args):
-    status, exams = request(args, "GET", "/api/examinations")
-    print(f"OK {base_url(args)}，共 {len(exams)} 个考试集")
+    request(args, "GET", "/api/health")
+    print(f"OK {base_url(args)}")
     return 0
 
 
