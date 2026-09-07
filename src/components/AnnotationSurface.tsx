@@ -9,6 +9,22 @@ const ERASER_HIT_RADIUS = 14;
 /** 画笔可选颜色与粗细 */
 const PEN_COLORS = ['#2e6fdf', '#d05a4e', '#ef8c47', '#267b49', '#7a4fd0', '#233247'];
 
+/** 文本批注（高亮/划线）可选颜色：与画笔同色系，base 为划线颜色，bg 为高亮背景浅色 */
+export const TEXT_COLORS = [
+  { base: '#2e6fdf', bg: '#dbe9ff' },
+  { base: '#d05a4e', bg: '#ffd9d6' },
+  { base: '#ef8c47', bg: '#ffe4cc' },
+  { base: '#267b49', bg: '#d9f2e0' },
+  { base: '#7a4fd0', bg: '#e9ddfa' },
+  { base: '#233247', bg: '#dde5ee' },
+] as const;
+
+/** 按批注存储的 color 找到颜色下标；旧数据（如 'blue'）或缺失时回退到首色 */
+const textColorIndex = (color?: string) => {
+  const i = TEXT_COLORS.findIndex((c) => c.base === color);
+  return i >= 0 ? i : 0;
+};
+
 /** 将点列绘制为平滑笔触：先抽稀过近的点，再用中点二次贝塞尔连线 */
 function strokePath(ctx: CanvasRenderingContext2D, points: [number, number][]) {
   const pts: [number, number][] = [];
@@ -111,12 +127,13 @@ export function AnnotationSurface({
   children,
 }: AnnotationSurfaceProps) {
   const highlightName = `cb-highlight-${highlightId}`;
-  const underlineName = `cb-underline-${highlightId}`;
-  const hostRef = useRef<HTMLDivElement>(null);
+  const underlineName = `cb-underline-${highlightId}`;  const hostRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingPoints = useRef<[number, number][]>([]);
   const [selPopup, setSelPopup] = useState<SelectionPopup | null>(null);
+  /** 选中文本后浮动工具栏中当前选中的高亮/划线颜色（下标，与画笔色系一致） */
+  const [selColor, setSelColor] = useState(0);
   const [noteEditor, setNoteEditor] = useState<NoteEditor | null>(null);
   /** 选择工具下鼠标是否悬停在文本批注上，用于切换可点击光标 */
   const [hoverAnnotated, setHoverAnnotated] = useState(false);
@@ -190,22 +207,25 @@ export function AnnotationSurface({
     const content = contentRef.current;
     if (!content || !HighlightCtor || !highlights) return;
     const nodes = collectTextNodes(content, excludeSelector);
-    const rangesFor = (type: 'highlight' | 'underline') => {
-      const ranges: Range[] = [];
-      for (const a of list) {
-        if (a.type !== type || a.start == null || a.end == null) continue;
-        for (const n of nodes) {
-          if (a.end <= n.start || a.start >= n.end) continue;
-          const range = document.createRange();
-          range.setStart(n.node, Math.max(0, a.start - n.start));
-          range.setEnd(n.node, Math.min(n.node.data.length, a.end - n.start));
-          ranges.push(range);
+    /** 按颜色分组注册：每种颜色各占一个 highlight 名，样式在 styles.css 按下标预定义 */
+    const applyFor = (type: 'highlight' | 'underline', prefix: string) => {
+      for (let i = 0; i < TEXT_COLORS.length; i++) {
+        const ranges: Range[] = [];
+        for (const a of list) {
+          if (a.type !== type || a.start == null || a.end == null || textColorIndex(a.color) !== i) continue;
+          for (const n of nodes) {
+            if (a.end <= n.start || a.start >= n.end) continue;
+            const range = document.createRange();
+            range.setStart(n.node, Math.max(0, a.start - n.start));
+            range.setEnd(n.node, Math.min(n.node.data.length, a.end - n.start));
+            ranges.push(range);
+          }
         }
+        highlights.set(`${prefix}-${i}`, new HighlightCtor(...ranges));
       }
-      return ranges;
     };
-    highlights.set(highlightName, new HighlightCtor(...rangesFor('highlight')));
-    highlights.set(underlineName, new HighlightCtor(...rangesFor('underline')));
+    applyFor('highlight', highlightName);
+    applyFor('underline', underlineName);
   }, [annotations, excludeSelector, highlightName, underlineName]);
 
   useEffect(() => {
@@ -421,7 +441,7 @@ export function AnnotationSurface({
       start: selPopup.start,
       end: selPopup.end,
       text: selPopup.text,
-      color: 'blue',
+      color: TEXT_COLORS[selColor].base,
     }]);
     window.getSelection()?.removeAllRanges();
     setSelPopup(null);
@@ -455,6 +475,17 @@ export function AnnotationSurface({
       </div>
       {selPopup && (
         <div className="sel-popup" style={{ left: selPopup.x, top: selPopup.y }}>
+          {TEXT_COLORS.map((c, i) => (
+            <button
+              key={c.base}
+              className={`sel-color${selColor === i ? ' selected' : ''}`}
+              title="颜色"
+              onClick={() => setSelColor(i)}
+            >
+              <i style={{ background: c.base }} />
+            </button>
+          ))}
+          <span className="sel-sep" />
           <button onClick={() => annotateText('highlight')}><Highlighter size={14} /> 高亮</button>
           <button onClick={() => annotateText('underline')}><Underline size={14} /> 划线</button>
         </div>

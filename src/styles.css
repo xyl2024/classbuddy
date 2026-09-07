@@ -67,9 +67,13 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}
 .annotation-canvas{position:absolute;z-index:2;inset:0;pointer-events:none}
 
 /* 选中文本后的浮动工具栏 */
-.sel-popup{position:fixed;transform:translate(-50%,8px);background:#24354a;border-radius:8px;padding:4px;display:flex;gap:3px;box-shadow:0 8px 24px #18263844;z-index:30}
-.sel-popup button{font-size:12px;color:#fff;padding:6px 10px;border-radius:6px;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
-.sel-popup button:hover{background:#3a4f6b}
+.sel-popup{position:fixed;transform:translate(-50%,8px);background:#fff;border:1px solid #e8edf3;border-radius:8px;padding:4px;display:flex;gap:3px;box-shadow:0 8px 24px #18263826;z-index:30}
+.sel-popup button{font-size:12px;color:#233247;padding:6px 10px;border-radius:6px;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
+.sel-popup button:hover{background:#edf4ff;color:#3176d8}
+.sel-popup .sel-color{width:24px;height:24px;padding:0;justify-content:center;border-radius:50%}
+.sel-popup .sel-color i{display:block;width:13px;height:13px;border-radius:50%}
+.sel-popup .sel-color.selected{background:#eef5ff;box-shadow:0 0 0 1.5px #9cc0f5 inset}
+.sel-popup .sel-sep{width:1px;height:16px;background:#e3e9f0;margin:0 2px}
 
 /* 点击高亮/划线内容后弹出的笔记编辑器 */
 /* 点击高亮/划线内容后弹出的笔记编辑器 */
@@ -82,11 +86,31 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}
 .note-popup button.primary{background:#2e6fdf;color:#fff}
 .note-popup button.primary:hover{background:#3a7ef0;color:#fff}
 
-/* 文本高亮与划线（CSS Custom Highlight API，材料区/题目区各自独立注册） */
-::highlight(cb-highlight-m){background-color:#a8cbff;color:inherit}
-::highlight(cb-underline-m){text-decoration:underline;text-decoration-color:#2e6fdf;text-decoration-thickness:2px;text-underline-offset:3px}
-::highlight(cb-highlight-q){background-color:#a8cbff;color:inherit}
-::highlight(cb-underline-q){text-decoration:underline;text-decoration-color:#2e6fdf;text-decoration-thickness:2px;text-underline-offset:3px}
+/* 文本高亮与划线（CSS Custom Highlight API，材料区/题目区各自独立注册；下标对应 TEXT_COLORS 颜色） */
+::highlight(cb-highlight-m-0){background-color:#dbe9ff;color:inherit}
+::highlight(cb-highlight-m-1){background-color:#ffd9d6;color:inherit}
+::highlight(cb-highlight-m-2){background-color:#ffe4cc;color:inherit}
+::highlight(cb-highlight-m-3){background-color:#d9f2e0;color:inherit}
+::highlight(cb-highlight-m-4){background-color:#e9ddfa;color:inherit}
+::highlight(cb-highlight-m-5){background-color:#dde5ee;color:inherit}
+::highlight(cb-underline-m-0){text-decoration:underline;text-decoration-color:#2e6fdf;text-decoration-thickness:2px;text-decoration-skip-ink:none;text-underline-offset:3px}
+::highlight(cb-underline-m-1){text-decoration:underline;text-decoration-color:#d05a4e;text-decoration-thickness:2px;text-decoration-skip-ink:none;text-underline-offset:3px}
+::highlight(cb-underline-m-2){text-decoration:underline;text-decoration-color:#ef8c47;text-decoration-thickness:2px;text-decoration-skip-ink:none;text-underline-offset:3px}
+::highlight(cb-underline-m-3){text-decoration:underline;text-decoration-color:#267b49;text-decoration-thickness:2px;text-decoration-skip-ink:none;text-underline-offset:3px}
+::highlight(cb-underline-m-4){text-decoration:underline;text-decoration-color:#7a4fd0;text-decoration-thickness:2px;text-decoration-skip-ink:none;text-underline-offset:3px}
+::highlight(cb-underline-m-5){text-decoration:underline;text-decoration-color:#233247;text-decoration-thickness:2px;text-decoration-skip-ink:none;text-underline-offset:3px}
+::highlight(cb-highlight-q-0){background-color:#dbe9ff;color:inherit}
+::highlight(cb-highlight-q-1){background-color:#ffd9d6;color:inherit}
+::highlight(cb-highlight-q-2){background-color:#ffe4cc;color:inherit}
+::highlight(cb-highlight-q-3){background-color:#d9f2e0;color:inherit}
+::highlight(cb-highlight-q-4){background-color:#e9ddfa;color:inherit}
+::highlight(cb-highlight-q-5){background-color:#dde5ee;color:inherit}
+::highlight(cb-underline-q-0){text-decoration:underline;text-decoration-color:#2e6fdf;text-decoration-thickness:2px;text-decoration-skip-ink:none;text-underline-offset:3px}
+::highlight(cb-underline-q-1){text-decoration:underline;text-decoration-color:#d05a4e;text-decoration-thickness:2px;text-decoration-skip-ink:none;text-underline-offset:3px}
+::highlight(cb-underline-q-2){text-decoration:underline;text-decoration-color:#ef8c47;text-decoration-thickness:2px;text-decoration-skip-ink:none;text-underline-offset:3px}
+::highlight(cb-underline-q-3){text-decoration:underline;text-decoration-color:#267b49;text-decoration-thickness:2px;text-decoration-skip-ink:none;text-underline-offset:3px}
+::highlight(cb-underline-q-4){text-decoration:underline;text-decoration-color:#7a4fd0;text-decoration-thickness:2px;text-decoration-skip-ink:none;text-underline-offset:3px}
+::highlight(cb-underline-q-5){text-decoration:underline;text-decoration-color:#233247;text-decoration-thickness:2px;text-decoration-skip-ink:none;text-underline-offset:3px}
 
 /* 工具栏：材料卡片底部与工作台底部共用按钮样式 */
 .pane-foot{border-top:1px solid #edf0f4;padding:10px 16px;display:flex;gap:5px;align-items:center;background:#fff}
