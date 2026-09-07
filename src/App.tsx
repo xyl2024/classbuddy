@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { fetchExaminations, fetchItem } from './api';
+import { fetchExaminations, fetchItem, onAuthRequired } from './api';
 import { useAnnotations } from './hooks/useAnnotations';
 import { HomePage } from './components/HomePage';
 import { MaterialPane } from './components/MaterialPane';
@@ -7,6 +7,7 @@ import { QuestionsPane } from './components/QuestionsPane';
 import { AnnotationToolbar } from './components/AnnotationSurface';
 import { EmptyState } from './components/EmptyState';
 import { ChangeToast } from './components/ChangeToast';
+import { AuthDialog } from './components/AuthDialog';
 import type { Annotation, AnnotationTarget, ClozeQuestion, Exam, GapFillQuestion, GrammarFillQuestion, ItemData, Question, Selected, Tool } from './types';
 
 /** 从路径解析路由：/ -> 首页；/:examId -> 工作台；/:examId/:itemId -> 指定试题组 */
@@ -38,6 +39,10 @@ export default function App() {
   const [penWidth, setPenWidth] = useState(3);
   /** 选句填空：逐空预览状态（题号 -> 是否预览），由材料区空槽与题目区共享 */
   const [gapRevealed, setGapRevealed] = useState<Record<string, boolean>>({});
+  /** 鉴权表单：服务端要求凭据（写操作被 401 拒绝）时自动弹出 */
+  const [authOpen, setAuthOpen] = useState(false);
+  /** 鉴权表单错误提示：凭据被拒绝时显示 */
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const { annotations, reset, commit, undo, redo, canUndo, canRedo } = useAnnotations(selected);
 
@@ -116,6 +121,21 @@ export default function App() {
     return () => events.close();
   }, [loadExams]);
 
+  /** 任一接口返回 401 时弹出鉴权表单；本次请求已携带凭据仍被拒则提示错误 */
+  useEffect(
+    () => onAuthRequired((hadCredentials) => {
+      setAuthError(hadCredentials ? '用户名或密码错误，请重试' : null);
+      setAuthOpen(true);
+    }),
+    [],
+  );
+
+  /** 关闭鉴权表单时同时清除错误 */
+  const closeAuth = useCallback(() => {
+    setAuthOpen(false);
+    setAuthError(null);
+  }, []);
+
   /** 首次加载与浏览器前进/后退时按路径恢复状态 */
   useEffect(() => {
     applyPath(exams);
@@ -173,6 +193,7 @@ export default function App() {
     return (
       <div className="app">
         <HomePage exams={exams} onOpen={openExam} onImported={loadExams} />
+        <AuthDialog open={authOpen} onClose={closeAuth} error={authError} />
         {toast}
       </div>
     );
@@ -247,6 +268,7 @@ export default function App() {
           />
         )}
       </main>
+      <AuthDialog open={authOpen} onClose={closeAuth} error={authError} />
       {toast}
     </div>
   );

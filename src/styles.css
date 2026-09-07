@@ -245,3 +245,21 @@ button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}
   .material-scroll{padding:24px}
   .workbench-foot{margin:0 12px 12px}
 }
+
+/* ---- 鉴权设置弹窗 ---- */
+.dialog-mask{position:fixed;inset:0;background:rgba(35,50,71,.4);display:flex;align-items:center;justify-content:center;z-index:100}
+.dialog{width:340px;background:#fff;border-radius:12px;padding:18px 20px;box-shadow:0 12px 40px rgba(35,50,71,.2);display:flex;flex-direction:column;gap:14px}
+.dialog-head{display:flex;align-items:center;gap:8px;color:#3075d7}
+.dialog-head h3{margin:0;font-size:16px;color:#233247}
+.auth-status{font-size:12px;color:#1a7f37;background:#e8f6ee;border-radius:999px;padding:2px 10px}
+.dialog-field{display:flex;flex-direction:column;gap:6px;font-size:13px;color:#5a6b84}
+.dialog-field input{border:1px solid #d5e6fb;border-radius:8px;padding:8px 12px;font-size:14px;outline:none}
+.dialog-field input:focus{border-color:#3075d7}
+.dialog-hint{margin:0;font-size:12px;color:#8a97ab;line-height:1.5}
+.dialog-foot{display:flex;justify-content:flex-end;gap:8px}
+.dialog-btn{border:1px solid #dde5f0;background:#fff;color:#5a6b84;border-radius:8px;padding:7px 14px;font-size:13px;cursor:pointer;transition:background .15s,border-color .15s}
+.dialog-btn:hover{background:#f2f6fc}
+.dialog-btn.primary{background:#3075d7;border-color:#3075d7;color:#fff}
+.dialog-btn.primary:hover{background:#2a67c0}
+.home-actions{display:flex;align-items:center}
+.dialog-error{margin:0;font-size:13px;color:#c62828;background:#fdecea;border:1px solid #f5c6c6;border-radius:8px;padding:8px 12px}

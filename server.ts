@@ -17,6 +17,29 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.raw({ type: 'application/zip', limit: '100mb' }));
 await fs.mkdir(dataDir, { recursive: true });
 
+// ---- 写操作 Basic Auth：--auth user:pass 或 CLASSBUDDY_AUTH 配置后启用；未配置则不鉴权，读取接口始终开放 ----
+const authPair = argValue('--auth') || process.env.CLASSBUDDY_AUTH || '';
+const authHash = authPair.includes(':') ? crypto.createHash('sha256').update(`Basic ${Buffer.from(authPair).toString('base64')}`).digest() : null;
+if (!authHash && authPair) console.warn('CLASSBUDDY_AUTH/--auth 格式应为 user:pass，已忽略（鉴权未启用）');
+/** 校验请求是否携带正确的 Basic 凭据；未启用鉴权时始终视为通过 */
+const isAuthorized = (req: express.Request) => {
+  if (!authHash) return true;
+  const provided = crypto.createHash('sha256').update(String(req.headers.authorization || '')).digest();
+  return crypto.timingSafeEqual(provided, authHash);
+};
+app.use((req, res, next) => {
+  if (!authHash || req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return next();
+  if (isAuthorized(req)) return next();
+  // 不返回 WWW-Authenticate 头，避免浏览器弹原生登录框；前端收到 401 会弹出应用内的鉴权表单
+  res.status(401).json({ error: '需要鉴权：请在请求头中携带 Authorization: Basic <base64("user:pass")>' });
+});
+
+/** 凭据校验：供首页“鉴权设置”表单保存前验证用户名密码是否正确（GET 但需鉴权） */
+app.get('/api/auth/check', (req, res) => {
+  if (isAuthorized(req)) res.json({ ok: true });
+  else res.status(401).json({ error: '用户名或密码错误' });
+});
+
 /** 广播文件变化事件给已连接的客户端 */
 const notifyChange = () => { for (const client of clients) client.write(`data: ${JSON.stringify({ type: 'files-changed' })}\n\n`); };
 

@@ -1,7 +1,8 @@
-import { useRef, useState } from 'react';
-import { Download, FileText, GraduationCap, TriangleAlert, Upload } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Download, FileText, GraduationCap, KeyRound, TriangleAlert, Upload } from 'lucide-react';
 import type { Exam } from '../types';
-import { exportExam, importExam } from '../api';
+import { exportExam, hasCredentials, importExam, onAuthChanged } from '../api';
+import { AuthDialog } from './AuthDialog';
 
 interface HomePageProps {
   exams: Exam[];
@@ -14,6 +15,44 @@ interface HomePageProps {
 export function HomePage({ exams, onOpen, onImported }: HomePageProps) {
   const fileInput = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
+  /** 因 401 暂存的上传任务（等凭据保存后自动重试） */
+  const pending = useRef<{ file: File; overwrite: boolean } | null>(null);
+
+  /** 执行导入；401 时保留任务，等鉴权就绪后重试 */
+  const runImport = useCallback(
+    async (file: File, overwrite: boolean) => {
+      const name = file.name.replace(/\.zip$/i, '');
+      setImporting(true);
+      pending.current = { file, overwrite };
+      try {
+        await importExam(file, name, overwrite);
+        pending.current = null;
+        onImported();
+      } catch (err: any) {
+        if (err?.status === 401) return; // 凭据保存后自动重试
+        pending.current = null;
+        if (err?.status !== 409) throw err;
+        if (!confirm(`考试集“${err.message.match(/“(.+?)”/)?.[1] || name}”已存在，是否覆盖？`)) return;
+        await runImport(file, true);
+      } finally {
+        setImporting(false);
+      }
+    },
+    [onImported],
+  );
+
+  /** 凭据保存后，自动重试之前被 401 拒绝的上传 */
+  useEffect(
+    () =>
+      onAuthChanged(() => {
+        const task = pending.current;
+        if (!task) return;
+        pending.current = null;
+        runImport(task.file, task.overwrite);
+      }),
+    [runImport],
+  );
 
   /** 上传试卷：zip 压缩包；同名考试集需确认后覆盖 */
   const upload = async (file: File) => {
@@ -21,21 +60,10 @@ export function HomePage({ exams, onOpen, onImported }: HomePageProps) {
       alert('请上传 zip 压缩包');
       return;
     }
-    const name = file.name.replace(/\.zip$/i, '');
     try {
-      setImporting(true);
-      try {
-        await importExam(file, name);
-      } catch (err: any) {
-        if (err?.status !== 409) throw err;
-        if (!confirm(`考试集“${err.message.match(/“(.+?)”/)?.[1] || name}”已存在，是否覆盖？`)) return;
-        await importExam(file, name, true);
-      }
-      onImported();
+      await runImport(file, false);
     } catch (err: any) {
       alert(err?.message || '导入失败');
-    } finally {
-      setImporting(false);
     }
   };
 
@@ -52,9 +80,12 @@ export function HomePage({ exams, onOpen, onImported }: HomePageProps) {
       <header className="home-head">
         <div className="home-brand"><GraduationCap size={26} /> ClassBuddy</div>
         <h1>选择一份试卷开始讲课</h1>
-        <p>
+        <p className="home-actions">
           <button className="upload-btn" onClick={() => fileInput.current?.click()} disabled={importing}>
             <Upload size={14} /> {importing ? '导入中…' : '上传试卷'}
+          </button>
+          <button className="upload-btn auth-btn" onClick={() => setAuthOpen(true)} title="设置服务端写接口的 Basic Auth 凭据">
+            <KeyRound size={14} /> {hasCredentials() ? '鉴权已设置' : '鉴权设置'}
           </button>
           <input
             ref={fileInput}
@@ -101,6 +132,7 @@ export function HomePage({ exams, onOpen, onImported }: HomePageProps) {
           <p>点击“上传试卷”导入 zip 压缩包，即可开始使用</p>
         </div>
       )}
+      <AuthDialog open={authOpen} onClose={() => setAuthOpen(false)} />
     </main>
   );
 }

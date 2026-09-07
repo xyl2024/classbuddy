@@ -19,6 +19,9 @@ npm run build
 
 # 生产环境启动
 NODE_ENV=production npm run start -- --port 3000
+
+# 启用 API 写操作 Basic Auth（可选，未配置则不鉴权）
+NODE_ENV=production npm run start -- --port 3000 --auth user:pass
 ```
 
 每次修改 TypeScript、React 或服务端代码后，至少执行 `npm run build` 验证类型检查和生产构建。
@@ -94,6 +97,7 @@ CONTEXT.md             # 领域术语
 - 外部文件变化通过服务端事件通知，页面提示教师手动重新加载。
 - 首页支持试卷数据的上传与下载：上传 zip 压缩包导入为考试集（同名需确认覆盖），下载将考试集导出为 zip。
 - 单个试题组文件异常不应导致整个服务启动失败，应在导航中标记异常。
+- API 鉴权：启动参数 `--auth user:pass`（或环境变量 `CLASSBUDDY_AUTH`）启用后，写操作（POST/PUT/PATCH/DELETE）需携带 HTTP Basic Auth，读取接口（GET）与静态资源始终开放；未配置则不鉴权。
 
 ## 修改规范
 
